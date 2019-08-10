@@ -14,15 +14,15 @@ pub struct WisphaEntryProperties {
     pub absolute_path: PathBuf,
 }
 
-pub struct WisphaEntry {
+pub struct WisphaEntry<'a> {
     pub properties:  WisphaEntryProperties,
     pub entry_file_path: Option<PathBuf>,
-    pub sup_entry: Option<WisphaEntry>,
-    pub sub_entries: Vec<Box<WisphaEntry>>,
+    pub sup_entry: Option<& 'a WisphaEntry<'a>>,
+    pub sub_entries: Vec<Box<WisphaEntry<'a>>>,
 }
 
-impl WisphaEntry {
-    pub fn new() -> WisphaEntry {
+impl<'a> WisphaEntry<'a> {
+    pub fn new() -> WisphaEntry<'a> {
         let properties = WisphaEntryProperties { entry_type: WisphaEntryType::File, name:
         String::new(), description:
         String::new(), absolute_path: PathBuf::new() };
