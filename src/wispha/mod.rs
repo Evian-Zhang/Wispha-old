@@ -16,6 +16,8 @@ pub struct WisphaEntryProperties {
 
 pub struct WisphaEntry {
     pub properties:  WisphaEntryProperties,
+    pub entry_file_path: Option<PathBuf>,
+    pub sup_entry: Option<WisphaEntry>,
     pub sub_entries: Vec<Box<WisphaEntry>>,
 }
 
@@ -25,6 +27,6 @@ impl WisphaEntry {
         String::new(), description:
         String::new(), absolute_path: PathBuf::new() };
         let sub_entries: Vec<Box<WisphaEntry>> = Vec::new();
-        WisphaEntry { properties, sub_entries }
+        WisphaEntry { properties, entry_file_path: None, sup_entry: None, sub_entries }
     }
 }
