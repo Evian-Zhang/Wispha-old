@@ -32,3 +32,13 @@ pub struct WisphaEntry {
 //        WisphaEntry { properties, entry_file_path: None, sup_entry: None, sub_entries }
 //    }
 //}
+
+impl WisphaEntryType {
+    pub fn to_str(&self) -> &'static str {
+        match &self {
+            WisphaEntryType::Directory => "Directory",
+            WisphaEntryType::File => "File",
+            WisphaEntryType::ProgramEntry => "Program entry",
+        }
+    }
+}
