@@ -1,5 +1,7 @@
 use std::string::String;
 use std::path::{Path, PathBuf};
+use std::rc::{Rc, Weak};
+use std::cell::RefCell;
 
 pub enum WisphaEntryType {
     Directory,
@@ -14,19 +16,19 @@ pub struct WisphaEntryProperties {
     pub absolute_path: PathBuf,
 }
 
-pub struct WisphaEntry<'a> {
+pub struct WisphaEntry {
     pub properties:  WisphaEntryProperties,
     pub entry_file_path: Option<PathBuf>,
-    pub sup_entry: Option<& 'a WisphaEntry<'a>>,
-    pub sub_entries: Vec<Box<WisphaEntry<'a>>>,
+    pub sup_entry: RefCell<Weak<WisphaEntry>>,
+    pub sub_entries: RefCell<Vec<Rc<WisphaEntry>>>,
 }
 
-impl<'a> WisphaEntry<'a> {
-    pub fn new() -> WisphaEntry<'a> {
-        let properties = WisphaEntryProperties { entry_type: WisphaEntryType::File, name:
-        String::new(), description:
-        String::new(), absolute_path: PathBuf::new() };
-        let sub_entries: Vec<Box<WisphaEntry>> = Vec::new();
-        WisphaEntry { properties, entry_file_path: None, sup_entry: None, sub_entries }
-    }
-}
+//impl WisphaEntry {
+//    pub fn new() -> WisphaEntry {
+//        let properties = WisphaEntryProperties { entry_type: WisphaEntryType::File, name:
+//        String::new(), description:
+//        String::new(), absolute_path: PathBuf::new() };
+//        let sub_entries: Vec<Box<WisphaEntry>> = Vec::new();
+//        WisphaEntry { properties, entry_file_path: None, sup_entry: None, sub_entries }
+//    }
+//}
