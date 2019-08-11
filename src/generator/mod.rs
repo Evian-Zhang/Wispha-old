@@ -37,13 +37,13 @@ fn print(entry: &WisphaEntry, indent: i32) {
 
 pub fn generate_wispha_entry_at_path(path: &PathBuf, sup_entry: Weak<WisphaEntry>) ->
                                                                              Result<WisphaEntry> {
-    let name = path.file_name().ok_or(GeneratorError::NameNotDetermined)?
+    let mut wispha_entry = WisphaEntry::default();
+
+    wispha_entry.properties.name = path.file_name().ok_or(GeneratorError::NameNotDetermined)?
         .to_str().ok_or(GeneratorError::NameNotValid)?
         .to_string();
 
-    let description = String::new();
-
-    let absolute_path = path.clone();
+    wispha_entry.properties.absolute_path = path.clone();
 
     let (entry_type, entry_file_path) = match path.is_dir() {
         true => (
@@ -56,14 +56,11 @@ pub fn generate_wispha_entry_at_path(path: &PathBuf, sup_entry: Weak<WisphaEntry
         false => (WisphaEntryType::File, None),
     };
 
-    let properties = WisphaEntryProperties { entry_type, name, description, absolute_path };
+    wispha_entry.properties.entry_type = entry_type;
 
-    Ok(WisphaEntry {
-        properties,
-        entry_file_path,
-        sup_entry: RefCell::new(sup_entry),
-        sub_entries: RefCell::new(Vec::new())
-    })
+    wispha_entry.entry_file_path = entry_file_path;
+
+    Ok(wispha_entry)
 }
 
 pub fn get_ignored_files_at_dir(dir: &PathBuf) -> Vec<PathBuf> {

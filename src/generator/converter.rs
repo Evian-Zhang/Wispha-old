@@ -51,20 +51,15 @@ impl WisphaEntryProperties {
                                         LINE_SEPARATOR);
 
         let description_header_string = format!("{} {}", begin_mark, DESCRIPTION_HEADER);
-        let description_string = format!("{}{}{}{}",
+        let description_string = format!("{}{}{}",
                                          description_header_string,
                                          LINE_SEPARATOR,
-                                         &self.description,
-                                         LINE_SEPARATOR);
+                                         &self.description);
 
-        return Ok(format!("{}{}{}{}{}{}{}",
-                          absolute_path_string,
-                          LINE_SEPARATOR,
-                          name_string,
-                          LINE_SEPARATOR,
-                          entry_type_string,
-                          LINE_SEPARATOR,
-                          description_string));
+        return Ok([absolute_path_string,
+            name_string,
+            entry_type_string,
+            description_string].join(LINE_SEPARATOR).add(LINE_SEPARATOR));
     }
 }
 
@@ -77,35 +72,30 @@ impl WisphaEntry {
             counter += 1;
         }
 
-        let properties_string = &self.properties.to_string(depth)?;
+        let properties_string = self.properties.to_string(depth)?;
 
         if let Some(entry_file_path) = &self.entry_file_path {
             let entry_file_path_header_string = format!("{} {}", begin_mark,
                                                         ENTRY_FILE_PATH_HEADER);
-            let entry_file_path_string = format!("{}{}{}{}",
+            let entry_file_path_string = format!("{}{}{}",
                                                  entry_file_path_header_string,
                                                  LINE_SEPARATOR,
-                                                 entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?,
-                                                 LINE_SEPARATOR);
-            return Ok(format!("{}{}{}",
-                       properties_string,
-                       LINE_SEPARATOR,
-                       entry_file_path_string));
+                                                 entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?);
+            return Ok([properties_string, entry_file_path_string].join(LINE_SEPARATOR));
         } else {
             let mut sub_entry_strings: Vec<String> = Vec::new();
             let sub_entries_header_string = format!("{} {}", begin_mark, SUB_ENTRIES_HEADER);
             for sub_entry in &*self.sub_entries.borrow() {
-                let sub_entry_string = format!("{}{}{}{}",
-                                               sub_entries_header_string,
-                                               LINE_SEPARATOR,
-                                               sub_entry.to_file_string(depth + 1)?,
-                                               LINE_SEPARATOR);
+                let sub_entry_string = [sub_entries_header_string.clone(),
+                    sub_entry.to_file_string(depth + 1)?].join(LINE_SEPARATOR);
                 sub_entry_strings.push(sub_entry_string);
             }
-            return Ok(format!("{}{}{}",
-                              properties_string,
-                              LINE_SEPARATOR,
-                              sub_entry_strings.join(LINE_SEPARATOR)));
+            if sub_entry_strings.len() > 0 {
+                return Ok([properties_string, sub_entry_strings.join(LINE_SEPARATOR)].join
+                (LINE_SEPARATOR));
+            } else {
+                return Ok(properties_string)
+            }
         }
         Err(GeneratorError::Unexpected)
     }

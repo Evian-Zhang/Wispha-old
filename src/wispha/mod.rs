@@ -33,12 +33,50 @@ pub struct WisphaEntry {
 //    }
 //}
 
+static DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
+static DEFAULT_NAME: &str = "default name";
+static DEFAULT_DESCRIPTION: &str = "default description";
+static DEFAULT_PATH: &str = "default path";
+
+
 impl WisphaEntryType {
     pub fn to_str(&self) -> &'static str {
         match &self {
             WisphaEntryType::Directory => "Directory",
             WisphaEntryType::File => "File",
             WisphaEntryType::ProgramEntry => "Program entry",
+        }
+    }
+}
+
+impl Copy for WisphaEntryType { }
+
+impl Clone for WisphaEntryType {
+    fn clone(&self) -> WisphaEntryType {
+        *self
+    }
+}
+
+impl WisphaEntry {
+    pub fn default() -> WisphaEntry {
+        let properties = WisphaEntryProperties {
+            entry_type: DEFAULT_ENTRY_TYPE,
+            name: String::from(DEFAULT_NAME),
+            description: String::from(DEFAULT_DESCRIPTION),
+            absolute_path: PathBuf::from(DEFAULT_PATH),
+        };
+
+        let entry_file_path = None;
+
+        let sup_entry: RefCell<Weak<WisphaEntry>> = RefCell::new(Weak::new());
+
+        let sub_entries: RefCell<Vec<Rc<WisphaEntry>>> = RefCell::new(Vec::new());
+
+        WisphaEntry {
+            properties,
+            entry_file_path,
+            sup_entry,
+            sub_entries
         }
     }
 }
