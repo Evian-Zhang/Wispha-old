@@ -9,6 +9,27 @@ use crate::wispha::WisphaEntryType::Directory;
 
 type Result<T> = std::result::Result<T, WisphaError>;
 
+static DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
+static DEFAULT_NAME: &str = "default name";
+static DEFAULT_DESCRIPTION: &str = "default description";
+static DEFAULT_PATH: &str = "default path";
+
+static DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
+
+pub static LINE_SEPARATOR: &str = "\n";
+
+pub static BEGIN_MARK: &str = "+";
+
+pub static ABSOLUTE_PATH_HEADER: &str = "[absolute path]";
+pub static NAME_HEADER: &str = "[name]";
+pub static ENTRY_TYPE_HEADER: &str = "[entry type]";
+pub static DESCRIPTION_HEADER: &str = "[description]";
+
+pub static ENTRY_FILE_PATH_HEADER: &str = "[entry file path]";
+pub static SUB_ENTRIES_HEADER: &str = "[subentry]";
+
+pub static ROOT_DIR: &str = "$ROOT_DIR";
+
 pub enum WisphaEntryType {
     Directory,
     File,
@@ -28,23 +49,6 @@ pub struct WisphaEntry {
     pub sup_entry: RefCell<Weak<WisphaEntry>>,
     pub sub_entries: RefCell<Vec<Rc<WisphaEntry>>>,
 }
-
-//impl WisphaEntry {
-//    pub fn new() -> WisphaEntry {
-//        let properties = WisphaEntryProperties { entry_type: WisphaEntryType::File, name:
-//        String::new(), description:
-//        String::new(), absolute_path: PathBuf::new() };
-//        let sub_entries: Vec<Box<WisphaEntry>> = Vec::new();
-//        WisphaEntry { properties, entry_file_path: None, sup_entry: None, sub_entries }
-//    }
-//}
-
-static DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
-static DEFAULT_NAME: &str = "default name";
-static DEFAULT_DESCRIPTION: &str = "default description";
-static DEFAULT_PATH: &str = "default path";
-
-static DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
 
 impl WisphaEntryType {
     pub fn to_str(&self) -> &'static str {
