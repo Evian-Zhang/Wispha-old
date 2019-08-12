@@ -51,15 +51,16 @@ impl WisphaEntryProperties {
                                         LINE_SEPARATOR);
 
         let description_header_string = format!("{} {}", begin_mark, DESCRIPTION_HEADER);
-        let description_string = format!("{}{}{}",
+        let description_string = format!("{}{}{}{}",
                                          description_header_string,
                                          LINE_SEPARATOR,
-                                         &self.description);
+                                         &self.description,
+                                         LINE_SEPARATOR);
 
         return Ok([absolute_path_string,
             name_string,
             entry_type_string,
-            description_string].join(LINE_SEPARATOR).add(LINE_SEPARATOR));
+            description_string].join(LINE_SEPARATOR));
     }
 }
 
@@ -85,14 +86,13 @@ impl WisphaEntry {
         } else {
             let mut sub_entry_strings: Vec<String> = Vec::new();
             let sub_entries_header_string = format!("{} {}", begin_mark, SUB_ENTRIES_HEADER);
-            for sub_entry in &*self.sub_entries.borrow() {
+            for sub_entry in &*self.sub_entries.try_borrow().or(Err(GeneratorError::Unexpected))? {
                 let sub_entry_string = [sub_entries_header_string.clone(),
                     sub_entry.to_file_string(depth + 1)?].join(LINE_SEPARATOR);
                 sub_entry_strings.push(sub_entry_string);
             }
             if sub_entry_strings.len() > 0 {
-                return Ok([properties_string, sub_entry_strings.join(LINE_SEPARATOR)].join
-                (LINE_SEPARATOR));
+                return Ok([properties_string, sub_entry_strings.join(LINE_SEPARATOR)].join(LINE_SEPARATOR));
             } else {
                 return Ok(properties_string)
             }
