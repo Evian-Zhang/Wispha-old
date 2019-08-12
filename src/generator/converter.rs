@@ -66,6 +66,7 @@ impl WisphaEntryProperties {
 
 impl WisphaEntry {
     pub fn to_file_string(&self, depth: u32) -> Result<String> {
+        println!("{}", depth);
         let mut begin_mark = String::new();
         let mut counter = 0;
         while counter <= depth {
@@ -78,10 +79,11 @@ impl WisphaEntry {
         if let Some(entry_file_path) = &self.entry_file_path {
             let entry_file_path_header_string = format!("{} {}", begin_mark,
                                                         ENTRY_FILE_PATH_HEADER);
-            let entry_file_path_string = format!("{}{}{}",
+            let entry_file_path_string = format!("{}{}{}{}",
                                                  entry_file_path_header_string,
                                                  LINE_SEPARATOR,
-                                                 entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?);
+                                                 entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?,
+                                                 LINE_SEPARATOR);
             return Ok([properties_string, entry_file_path_string].join(LINE_SEPARATOR));
         } else {
             let mut sub_entry_strings: Vec<String> = Vec::new();

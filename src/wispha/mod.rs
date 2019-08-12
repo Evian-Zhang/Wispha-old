@@ -3,6 +3,12 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
+mod error;
+use error::WisphaError;
+use crate::wispha::WisphaEntryType::Directory;
+
+type Result<T> = std::result::Result<T, WisphaError>;
+
 pub enum WisphaEntryType {
     Directory,
     File,
@@ -38,6 +44,7 @@ static DEFAULT_NAME: &str = "default name";
 static DEFAULT_DESCRIPTION: &str = "default description";
 static DEFAULT_PATH: &str = "default path";
 
+static DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
 
 impl WisphaEntryType {
     pub fn to_str(&self) -> &'static str {
@@ -54,6 +61,17 @@ impl Copy for WisphaEntryType { }
 impl Clone for WisphaEntryType {
     fn clone(&self) -> WisphaEntryType {
         *self
+    }
+}
+
+impl Clone for WisphaEntryProperties {
+    fn clone(&self) -> Self {
+        WisphaEntryProperties {
+            entry_type: self.entry_type,
+            name: self.name.clone(),
+            description: self.description.clone(),
+            absolute_path: self.absolute_path.clone(),
+        }
     }
 }
 
@@ -77,6 +95,17 @@ impl WisphaEntry {
             entry_file_path,
             sup_entry,
             sub_entries
+        }
+    }
+}
+
+impl Clone for WisphaEntry {
+    fn clone(&self) -> Self {
+        WisphaEntry {
+            properties: self.properties.clone(),
+            entry_file_path: self.entry_file_path.clone(),
+            sup_entry: self.sup_entry.clone(),
+            sub_entries: self.sub_entries.clone(),
         }
     }
 }
