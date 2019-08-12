@@ -3,7 +3,7 @@ use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 use std::io;
 use std::rc::{Rc, Weak};
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref};
 use std::ops::Add;
 use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaEntryType};
 use crate::generator::error::GeneratorError;
@@ -21,12 +21,9 @@ pub fn generate() -> Result<()> {
 //    let root = generate_from(&current_path, Weak::new())?;
 //    print(&root, 0);
 //    println!("{}", root.to_file_string(0)?);
-    let root = generate_file_at_path(&current_path)?;
-    if let () = fs::write(&current_path.join(PathBuf::from(&DEFAULT_FILE_NAME_STR)), &root.to_file_string(0)?).or(Err(GeneratorError::Unexpected))? {
-
-    } else {
-        println!("Error!");
-    }
+    let root = generate_file_at_path(&current_path, &current_path)?;
+    fs::write(&current_path.join(PathBuf::from(&DEFAULT_FILE_NAME_STR)), &root.to_file_string(0, &current_path)?)
+        .or(Err(GeneratorError::Unexpected))?;
     Ok(())
 }
 
@@ -121,30 +118,28 @@ pub fn generate_intermediate_file_at_path(path: &PathBuf) -> Result<WisphaEntry>
     Ok(wispha_entry)
 }
 
-pub fn generate_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
-    println!("zs");
-        println!("{}", &path.to_str().unwrap());
+pub fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf) -> Result<WisphaEntry> {
     let mut wispha_entry = generate_intermediate_file_at_path(path)?;
     if path.is_dir() {
         let ignored_files = get_ignored_files_at_dir(&path);
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
-            println!("{}", &entry.path().to_str().unwrap());
             if !ignored_files.contains(&entry.path()) {
-                let mut sub_entry = generate_file_at_path(&entry.path())?;
+                let mut sub_entry = generate_file_at_path(&entry.path(), root_dir)?;
                 if sub_entry.properties.absolute_path.is_dir() {
-                    sub_entry.entry_file_path = Some(PathBuf::from(&sub_entry.properties.name)
-                        .join(PathBuf::from(&DEFAULT_FILE_NAME_STR))
-                    );
-//                    println!("{}", sub_entry.entry_file_path.clone().unwrap().to_str().unwrap());
-                    fs::write(&sub_entry.entry_file_path.clone().ok_or(GeneratorError::Unexpected)?, &sub_entry.to_file_string(0)?).or(Err(GeneratorError::Unexpected))?;
+                    let absolute_path = sub_entry.properties.absolute_path
+                        .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
+                    fs::write(absolute_path, &sub_entry.to_file_string(0, root_dir)?)
+                        .or(Err(GeneratorError::Unexpected))?;
+
+                    let relative_path = PathBuf::from(&sub_entry.properties.name)
+                        .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
+                    sub_entry.entry_file_path = Some(relative_path);
                 }
                 wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
                     .push(Rc::new(sub_entry));
             }
         }
-        println!("yyk");
     }
-//    println!("{}", wispha_entry.to_file_string(0)?);
     Ok(wispha_entry)
 }
