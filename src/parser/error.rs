@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Debug, Result};
 
 pub enum ParserError {
-    Unexpect,
+    Unexpected,
 }
 
 impl Error for ParserError {

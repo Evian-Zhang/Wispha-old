@@ -18,7 +18,7 @@ impl WisphaEntryProperties {
             counter += 1;
         }
 
-        let absolute_path_header_string = format!("{} {}", begin_mark, wispha::ABSOLUTE_PATH_HEADER);
+        let absolute_path_header_string = format!("{} [{}]", begin_mark, wispha::ABSOLUTE_PATH_HEADER);
         let relative_path = self.absolute_path.clone()
             .strip_prefix(root_dir).or(Err(GeneratorError::Unexpected))?
             .to_path_buf();
@@ -32,21 +32,21 @@ impl WisphaEntryProperties {
                                            dir_absolute_path_str,
                                            wispha::LINE_SEPARATOR);
 
-        let name_header_string = format!("{} {}", begin_mark, wispha::NAME_HEADER);
+        let name_header_string = format!("{} [{}]", begin_mark, wispha::NAME_HEADER);
         let name_string = format!("{}{}{}{}",
                                   name_header_string,
                                   wispha::LINE_SEPARATOR,
                                   &self.name,
                                   wispha::LINE_SEPARATOR);
 
-        let entry_type_header_string = format!("{} {}", begin_mark, wispha::ENTRY_TYPE_HEADER);
+        let entry_type_header_string = format!("{} [{}]", begin_mark, wispha::ENTRY_TYPE_HEADER);
         let entry_type_string = format!("{}{}{}{}",
                                         entry_type_header_string,
                                         wispha::LINE_SEPARATOR,
                                         &self.entry_type.to_str(),
                                         wispha::LINE_SEPARATOR);
 
-        let description_header_string = format!("{} {}", begin_mark, wispha::DESCRIPTION_HEADER);
+        let description_header_string = format!("{} [{}]", begin_mark, wispha::DESCRIPTION_HEADER);
         let description_string = format!("{}{}{}{}",
                                          description_header_string,
                                          wispha::LINE_SEPARATOR,
@@ -72,7 +72,7 @@ impl WisphaEntry {
         let properties_string = self.properties.to_string(depth, root_dir)?;
 
         if let Some(entry_file_path) = &self.entry_file_path {
-            let entry_file_path_header_string = format!("{} {}", begin_mark,
+            let entry_file_path_header_string = format!("{} [{}]", begin_mark,
                                                         wispha::ENTRY_FILE_PATH_HEADER);
             let entry_file_path_string = format!("{}{}{}{}",
                                                  entry_file_path_header_string,
@@ -82,7 +82,7 @@ impl WisphaEntry {
             return Ok([properties_string, entry_file_path_string].join(wispha::LINE_SEPARATOR));
         } else {
             let mut sub_entry_strings: Vec<String> = Vec::new();
-            let sub_entries_header_string = format!("{} {}", begin_mark, wispha::SUB_ENTRIES_HEADER);
+            let sub_entries_header_string = format!("{} [{}]", begin_mark, wispha::SUB_ENTRIES_HEADER);
             for sub_entry in &*self.sub_entries.try_borrow().or(Err(GeneratorError::Unexpected))? {
                 let sub_entry_string = [sub_entries_header_string.clone(),
                     sub_entry.to_file_string(depth + 1, root_dir)?].join(wispha::LINE_SEPARATOR);

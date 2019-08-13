@@ -20,13 +20,13 @@ pub static LINE_SEPARATOR: &str = "\n";
 
 pub static BEGIN_MARK: &str = "+";
 
-pub static ABSOLUTE_PATH_HEADER: &str = "[absolute path]";
-pub static NAME_HEADER: &str = "[name]";
-pub static ENTRY_TYPE_HEADER: &str = "[entry type]";
-pub static DESCRIPTION_HEADER: &str = "[description]";
+pub static ABSOLUTE_PATH_HEADER: &str = "absolute path";
+pub static NAME_HEADER: &str = "name";
+pub static ENTRY_TYPE_HEADER: &str = "entry type";
+pub static DESCRIPTION_HEADER: &str = "description";
 
-pub static ENTRY_FILE_PATH_HEADER: &str = "[entry file path]";
-pub static SUB_ENTRIES_HEADER: &str = "[subentry]";
+pub static ENTRY_FILE_PATH_HEADER: &str = "entry file path";
+pub static SUB_ENTRIES_HEADER: &str = "subentry";
 
 pub static ROOT_DIR: &str = "$ROOT_DIR";
 
