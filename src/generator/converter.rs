@@ -84,6 +84,7 @@ impl WisphaEntry {
             let mut sub_entry_strings: Vec<String> = Vec::new();
             let sub_entries_header_string = format!("{} [{}]", begin_mark, wispha::SUB_ENTRIES_HEADER);
             for sub_entry in &*self.sub_entries.try_borrow().or(Err(GeneratorError::Unexpected))? {
+                let sub_entry = sub_entry.try_borrow().or(Err(GeneratorError::Unexpected))?;
                 let sub_entry_string = [sub_entries_header_string.clone(),
                     sub_entry.to_file_string(depth + 1, root_dir)?].join(wispha::LINE_SEPARATOR);
                 sub_entry_strings.push(sub_entry_string);

@@ -21,20 +21,8 @@ pub fn parse(raw_content: String) {
 
 }
 
-pub fn parse_with_depth(content: String, depth: u32) -> Result<Rc<WisphaEntry>> {
-    let regex_pattern = prepare_regex_pattern(depth)?;
-
-    let mut raw_wispha_members: Vec<RawWisphaMember> = Vec::new();
-
-    for caps in regex_pattern.captures_iter(content.as_str()) {
-        let header = caps.at(1).ok_or(ParserError::Unexpected)?.to_string();
-        let body = caps.at(2).ok_or(ParserError::Unexpected)?
-            .trim_start_matches('\n')
-            .trim_end_matches('\n')
-            .to_string();
-        let raw_wispha_member = RawWisphaMember { header, body };
-        raw_wispha_members.push(raw_wispha_member);
-    }
+pub fn parse_with_depth(content: String, depth: u32) -> Result<Rc<RefCell<WisphaEntry>>> {
+    let raw_wispha_members = get_raw_wispha_members(&content, depth)?;
 
     let mut has_entry_file_path = false;
 
@@ -45,7 +33,7 @@ pub fn parse_with_depth(content: String, depth: u32) -> Result<Rc<WisphaEntry>> 
         }
     }
 
-    let wispha_entry = RefCell::new(Rc::new(WisphaEntry::default()));
+    let wispha_entry = Rc::new(RefCell::new(WisphaEntry::default()));
 
     for raw_wispha_member in &raw_wispha_members {
         let body = raw_wispha_member.body.clone();
@@ -81,20 +69,18 @@ pub fn parse_with_depth(content: String, depth: u32) -> Result<Rc<WisphaEntry>> 
                     .entry_file_path = Some(PathBuf::from(body))
             },
             wispha::SUB_ENTRIES_HEADER if !has_entry_file_path => {
-                let mut sub_entry = RefCell::new(parse_with_depth(body, depth + 1)?);
+                let mut sub_entry = parse_with_depth(body, depth + 1)?;
                 sub_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .sup_entry = RefCell::new(Rc::clone(
-                    wispha_entry.try_borrow().or(Err(ParserError::Unexpected))?
-                ));
+                    .sup_entry = RefCell::new(Rc::downgrade(&wispha_entry));
                 wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .sub_entries.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                   .push(sub_entry);
+                    .push(sub_entry);
             },
             _ => continue,
         }
     }
 
-    Ok(wispha_entry.into_inner())
+    Ok(wispha_entry)
 }
 
 fn begin_mark(depth: u32) -> Result<String> {
@@ -127,4 +113,22 @@ fn prepare_regex_pattern(depth: u32) -> Result<Regex> {
         .or(Err(ParserError::Unexpected))?;
 
     Ok(regex_pattern)
+}
+
+fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<RawWisphaMember>> {
+    let regex_pattern = prepare_regex_pattern(depth)?;
+
+    let mut raw_wispha_members: Vec<RawWisphaMember> = Vec::new();
+
+    for caps in regex_pattern.captures_iter(content.as_str()) {
+        let header = caps.at(1).ok_or(ParserError::Unexpected)?.to_string();
+        let body = caps.at(2).ok_or(ParserError::Unexpected)?
+            .trim_start_matches('\n')
+            .trim_end_matches('\n')
+            .to_string();
+        let raw_wispha_member = RawWisphaMember { header, body };
+        raw_wispha_members.push(raw_wispha_member);
+    }
+
+    Ok(raw_wispha_members)
 }

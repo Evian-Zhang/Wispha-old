@@ -50,8 +50,8 @@ pub struct WisphaEntryProperties {
 pub struct WisphaEntry {
     pub properties:  WisphaEntryProperties,
     pub entry_file_path: Option<PathBuf>,
-    pub sup_entry: RefCell<Weak<WisphaEntry>>,
-    pub sub_entries: RefCell<Vec<Rc<WisphaEntry>>>,
+    pub sup_entry: RefCell<Weak<RefCell<WisphaEntry>>>,
+    pub sub_entries: RefCell<Vec<Rc<RefCell<WisphaEntry>>>>,
 }
 
 impl WisphaEntryType {
@@ -103,9 +103,9 @@ impl WisphaEntry {
 
         let entry_file_path = None;
 
-        let sup_entry: RefCell<Weak<WisphaEntry>> = RefCell::new(Weak::new());
+        let sup_entry: RefCell<Weak<RefCell<WisphaEntry>>> = RefCell::new(Weak::new());
 
-        let sub_entries: RefCell<Vec<Rc<WisphaEntry>>> = RefCell::new(Vec::new());
+        let sub_entries: RefCell<Vec<Rc<RefCell<WisphaEntry>>>> = RefCell::new(Vec::new());
 
         WisphaEntry {
             properties,

@@ -7,6 +7,7 @@ use std::cell::{RefCell, Ref};
 use std::ops::Add;
 use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaEntryType};
 use crate::generator::error::GeneratorError;
+use std::borrow::Borrow;
 
 mod error;
 mod converter;
@@ -35,7 +36,7 @@ fn print(entry: &WisphaEntry, indent: i32) {
     }
     println!("{}", entry.properties.name);
     for sub_entry in &*entry.sub_entries.borrow() {
-        print(&sub_entry, indent + 1);
+        print(&*(**sub_entry).borrow(), indent + 1);
     }
 }
 
@@ -137,7 +138,7 @@ pub fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf) -> Result<Wisph
                     sub_entry.entry_file_path = Some(relative_path);
                 }
                 wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
-                    .push(Rc::new(sub_entry));
+                    .push(Rc::new(RefCell::new(sub_entry)));
             }
         }
     }
