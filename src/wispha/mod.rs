@@ -9,26 +9,30 @@ use crate::wispha::WisphaEntryType::Directory;
 
 type Result<T> = std::result::Result<T, WisphaError>;
 
-static DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
-static DEFAULT_NAME: &str = "default name";
-static DEFAULT_DESCRIPTION: &str = "default description";
-static DEFAULT_PATH: &str = "default path";
+const DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
+const DEFAULT_NAME: &str = "default name";
+const DEFAULT_DESCRIPTION: &str = "default description";
+const DEFAULT_PATH: &str = "default path";
 
-static DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
+const DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
 
-pub static LINE_SEPARATOR: &str = "\n";
+pub const LINE_SEPARATOR: &str = "\n";
 
-pub static BEGIN_MARK: &str = "+";
+pub const BEGIN_MARK: &str = "+";
 
-pub static ABSOLUTE_PATH_HEADER: &str = "absolute path";
-pub static NAME_HEADER: &str = "name";
-pub static ENTRY_TYPE_HEADER: &str = "entry type";
-pub static DESCRIPTION_HEADER: &str = "description";
+const DIRECTORY_TYPE: &str = "directory";
+const FILE_TYPE: &str = "file";
+const PROGRAM_ENTRY_TYPE: &str = "program entry";
 
-pub static ENTRY_FILE_PATH_HEADER: &str = "entry file path";
-pub static SUB_ENTRIES_HEADER: &str = "subentry";
+pub const ABSOLUTE_PATH_HEADER: &str = "absolute path";
+pub const NAME_HEADER: &str = "name";
+pub const ENTRY_TYPE_HEADER: &str = "entry type";
+pub const DESCRIPTION_HEADER: &str = "description";
 
-pub static ROOT_DIR: &str = "$ROOT_DIR";
+pub const ENTRY_FILE_PATH_HEADER: &str = "entry file path";
+pub const SUB_ENTRIES_HEADER: &str = "subentry";
+
+pub const ROOT_DIR: &str = "$ROOT_DIR";
 
 pub enum WisphaEntryType {
     Directory,
@@ -53,9 +57,18 @@ pub struct WisphaEntry {
 impl WisphaEntryType {
     pub fn to_str(&self) -> &'static str {
         match &self {
-            WisphaEntryType::Directory => "Directory",
-            WisphaEntryType::File => "File",
-            WisphaEntryType::ProgramEntry => "Program entry",
+            WisphaEntryType::Directory => DIRECTORY_TYPE,
+            WisphaEntryType::File => FILE_TYPE,
+            WisphaEntryType::ProgramEntry => PROGRAM_ENTRY_TYPE,
+        }
+    }
+
+    pub fn from(string: String) -> Option<WisphaEntryType> {
+        match string.as_str() {
+            DIRECTORY_TYPE => Some(WisphaEntryType::Directory),
+            FILE_TYPE => Some(WisphaEntryType::File),
+            PROGRAM_ENTRY_TYPE => Some(WisphaEntryType::ProgramEntry),
+            _ => None,
         }
     }
 }

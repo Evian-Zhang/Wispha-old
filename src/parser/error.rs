@@ -2,6 +2,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Debug, Result};
 
 pub enum ParserError {
+    AbsolutePathEmpty,
+    NameEmpty,
+    EntryFileTypeEmpty,
+    UnrecognizedEntryFileType,
     Unexpected,
 }
 
