@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use std::ops::Add;
 use std::fmt::Write as FmtWrite;
 use std::io::Write as IoWrite;
-use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType};
+use std::rc::Rc;
+use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaSubentry, WisphaIntermediateEntry};
 use crate::generator::{self, error::GeneratorError};
 
 type Result<T> = std::result::Result<T, GeneratorError>;
@@ -71,29 +72,34 @@ impl WisphaEntry {
 
         let properties_string = self.properties.to_string(depth, root_dir)?;
 
-        if let Some(entry_file_path) = &self.entry_file_path {
-            let entry_file_path_header_string = format!("{} [{}]", begin_mark,
-                                                        wispha::ENTRY_FILE_PATH_HEADER);
-            let entry_file_path_string = format!("{}{}{}{}",
-                                                 entry_file_path_header_string,
-                                                 wispha::LINE_SEPARATOR,
-                                                 entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?,
-                                                 wispha::LINE_SEPARATOR);
-            return Ok([properties_string, entry_file_path_string].join(wispha::LINE_SEPARATOR));
+        let mut sub_entry_strings: Vec<String> = Vec::new();
+        let sub_entries_header_string = format!("{} [{}]", begin_mark, wispha::SUB_ENTRIES_HEADER);
+        for sub_entry in &*self.sub_entries.try_borrow().or(Err(GeneratorError::Unexpected))? {
+            let sub_entry_reference_count_pointer = Rc::clone(sub_entry);
+            let sub_entry = &*sub_entry_reference_count_pointer.try_borrow().or(Err(GeneratorError::Unexpected))?;
+            let sub_entry_content = match sub_entry {
+                WisphaSubentry::Intermediate(entry) => {
+                    let entry_file_path_header_string = format!("{}{} [{}]",
+                                                                begin_mark,
+                                                                wispha::BEGIN_MARK,
+                                                                wispha::ENTRY_FILE_PATH_HEADER);
+                    format!("{}{}{}{}",
+                            entry_file_path_header_string,
+                            wispha::LINE_SEPARATOR,
+                            entry.entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?,
+                            wispha::LINE_SEPARATOR)
+                }
+                WisphaSubentry::Immediate(entry) => {
+                    entry.to_file_string(depth + 1, root_dir)?
+                }
+            };
+            let sub_entry_string = [sub_entries_header_string.clone(), sub_entry_content].join(wispha::LINE_SEPARATOR);
+            sub_entry_strings.push(sub_entry_string);
+        }
+        if sub_entry_strings.len() > 0 {
+            return Ok([properties_string, sub_entry_strings.join(wispha::LINE_SEPARATOR)].join(wispha::LINE_SEPARATOR));
         } else {
-            let mut sub_entry_strings: Vec<String> = Vec::new();
-            let sub_entries_header_string = format!("{} [{}]", begin_mark, wispha::SUB_ENTRIES_HEADER);
-            for sub_entry in &*self.sub_entries.try_borrow().or(Err(GeneratorError::Unexpected))? {
-                let sub_entry = sub_entry.try_borrow().or(Err(GeneratorError::Unexpected))?;
-                let sub_entry_string = [sub_entries_header_string.clone(),
-                    sub_entry.to_file_string(depth + 1, root_dir)?].join(wispha::LINE_SEPARATOR);
-                sub_entry_strings.push(sub_entry_string);
-            }
-            if sub_entry_strings.len() > 0 {
-                return Ok([properties_string, sub_entry_strings.join(wispha::LINE_SEPARATOR)].join(wispha::LINE_SEPARATOR));
-            } else {
-                return Ok(properties_string)
-            }
+            return Ok(properties_string);
         }
         Err(GeneratorError::Unexpected)
     }

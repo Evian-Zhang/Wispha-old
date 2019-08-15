@@ -6,6 +6,8 @@ pub enum ParserError {
     NameEmpty,
     EntryFileTypeEmpty,
     UnrecognizedEntryFileType,
+    InvalidPath,
+    FileCannotRead,
     Unexpected,
 }
 

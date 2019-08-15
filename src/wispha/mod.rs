@@ -33,6 +33,7 @@ pub const ENTRY_FILE_PATH_HEADER: &str = "entry file path";
 pub const SUB_ENTRIES_HEADER: &str = "subentry";
 
 pub const ROOT_DIR: &str = "$ROOT_DIR";
+pub const ROOT_DIR_VAR: &str = "ROOT_DIR";
 
 pub enum WisphaEntryType {
     Directory,
@@ -47,11 +48,19 @@ pub struct WisphaEntryProperties {
     pub absolute_path: PathBuf,
 }
 
+pub struct WisphaIntermediateEntry {
+    pub entry_file_path: PathBuf,
+}
+
+pub enum WisphaSubentry {
+    Intermediate(WisphaIntermediateEntry),
+    Immediate(WisphaEntry),
+}
+
 pub struct WisphaEntry {
     pub properties:  WisphaEntryProperties,
-    pub entry_file_path: Option<PathBuf>,
-    pub sup_entry: RefCell<Weak<RefCell<WisphaEntry>>>,
-    pub sub_entries: RefCell<Vec<Rc<RefCell<WisphaEntry>>>>,
+    pub sup_entry: RefCell<Weak<RefCell<WisphaSubentry>>>,
+    pub sub_entries: RefCell<Vec<Rc<RefCell<WisphaSubentry>>>>,
 }
 
 impl WisphaEntryType {
@@ -92,6 +101,53 @@ impl Clone for WisphaEntryProperties {
     }
 }
 
+impl Clone for WisphaIntermediateEntry {
+    fn clone(&self) -> Self {
+        WisphaIntermediateEntry {
+            entry_file_path: self.entry_file_path.clone(),
+        }
+    }
+}
+
+impl WisphaSubentry {
+    pub fn get_immediate_entry(&self) -> Option<&WisphaEntry> {
+        if let WisphaSubentry::Immediate(entry) = &self {
+            return Some(entry);
+        }
+        None
+    }
+
+    pub fn get_immediate_entry_mut(&mut self) -> Option<&mut WisphaEntry> {
+        if let WisphaSubentry::Immediate(entry) = self {
+            return Some(entry);
+        }
+        None
+    }
+
+    pub fn get_intermediate_entry(&self) -> Option<&WisphaIntermediateEntry> {
+        if let WisphaSubentry::Intermediate(entry) = &self {
+            return Some(entry);
+        }
+        None
+    }
+
+    pub fn get_intermediate_entry_mut(&mut self) -> Option<&mut WisphaIntermediateEntry> {
+        if let WisphaSubentry::Intermediate(entry) = self {
+            return Some(entry);
+        }
+        None
+    }
+}
+
+impl Clone for WisphaSubentry {
+    fn clone(&self) -> Self {
+        match &self {
+            WisphaSubentry::Intermediate(entry) => WisphaSubentry::Intermediate(entry.clone()),
+            WisphaSubentry::Immediate(entry) => WisphaSubentry::Immediate(entry.clone()),
+        }
+    }
+}
+
 impl WisphaEntry {
     pub fn default() -> WisphaEntry {
         let properties = WisphaEntryProperties {
@@ -101,15 +157,12 @@ impl WisphaEntry {
             absolute_path: PathBuf::from(DEFAULT_PATH),
         };
 
-        let entry_file_path = None;
+        let sup_entry: RefCell<Weak<RefCell<WisphaSubentry>>> = RefCell::new(Weak::new());
 
-        let sup_entry: RefCell<Weak<RefCell<WisphaEntry>>> = RefCell::new(Weak::new());
-
-        let sub_entries: RefCell<Vec<Rc<RefCell<WisphaEntry>>>> = RefCell::new(Vec::new());
+        let sub_entries: RefCell<Vec<Rc<RefCell<WisphaSubentry>>>> = RefCell::new(Vec::new());
 
         WisphaEntry {
             properties,
-            entry_file_path,
             sup_entry,
             sub_entries
         }
@@ -120,7 +173,6 @@ impl Clone for WisphaEntry {
     fn clone(&self) -> Self {
         WisphaEntry {
             properties: self.properties.clone(),
-            entry_file_path: self.entry_file_path.clone(),
             sup_entry: self.sup_entry.clone(),
             sub_entries: self.sub_entries.clone(),
         }

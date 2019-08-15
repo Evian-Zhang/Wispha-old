@@ -5,7 +5,7 @@ use std::io;
 use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use std::ops::Add;
-use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaEntryType};
+use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaSubentry, WisphaIntermediateEntry};
 use crate::generator::error::GeneratorError;
 use std::borrow::Borrow;
 
@@ -28,17 +28,17 @@ pub fn generate() -> Result<()> {
     Ok(())
 }
 
-fn print(entry: &WisphaEntry, indent: i32) {
-    let mut blank = 0;
-    while blank < indent {
-        print!("\t");
-        blank += 1;
-    }
-    println!("{}", entry.properties.name);
-    for sub_entry in &*entry.sub_entries.borrow() {
-        print(&*(**sub_entry).borrow(), indent + 1);
-    }
-}
+//fn print(entry: &WisphaEntry, indent: i32) {
+//    let mut blank = 0;
+//    while blank < indent {
+//        print!("\t");
+//        blank += 1;
+//    }
+//    println!("{}", entry.properties.name);
+//    for sub_entry in &*entry.sub_entries.borrow() {
+//        print(&*(**sub_entry).borrow(), indent + 1);
+//    }
+//}
 
 //pub fn generate_wispha_entry_at_path(path: &PathBuf, sup_entry: Weak<WisphaEntry>) -> Result<WisphaEntry> {
 //    let mut wispha_entry = WisphaEntry::default();
@@ -96,7 +96,7 @@ pub fn get_ignored_files_at_dir(dir: &PathBuf) -> Vec<PathBuf> {
 //    Ok(root)
 //}
 
-pub fn generate_intermediate_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
+fn generate_intermediate_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
     let mut wispha_entry = WisphaEntry::default();
 
     wispha_entry.properties.name = path.file_name().ok_or(GeneratorError::NameNotDetermined)?
@@ -105,17 +105,11 @@ pub fn generate_intermediate_file_at_path(path: &PathBuf) -> Result<WisphaEntry>
 
     wispha_entry.properties.absolute_path = path.clone();
 
-    let (entry_type, entry_file_path) = match path.is_dir() {
-        true => (
-            WisphaEntryType::Directory,
-            None
-        ),
-        false => (WisphaEntryType::File, None),
+    wispha_entry.properties.entry_type = match path.is_dir() {
+        true => WisphaEntryType::Directory,
+        false => WisphaEntryType::File,
     };
 
-    wispha_entry.properties.entry_type = entry_type;
-
-    wispha_entry.entry_file_path = entry_file_path;
     Ok(wispha_entry)
 }
 
@@ -127,7 +121,7 @@ pub fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf) -> Result<Wisph
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
             if !ignored_files.contains(&entry.path()) {
                 let mut sub_entry = generate_file_at_path(&entry.path(), root_dir)?;
-                if sub_entry.properties.absolute_path.is_dir() {
+                if (&entry.path()).is_dir() {
                     let absolute_path = sub_entry.properties.absolute_path
                         .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
                     fs::write(absolute_path, &sub_entry.to_file_string(0, root_dir)?)
@@ -135,10 +129,17 @@ pub fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf) -> Result<Wisph
 
                     let relative_path = PathBuf::from(&sub_entry.properties.name)
                         .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
-                    sub_entry.entry_file_path = Some(relative_path);
+
+                    let intermediate_entry = WisphaIntermediateEntry {
+                        entry_file_path: relative_path,
+                    };
+
+                    wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
+                        .push(Rc::new(RefCell::new(WisphaSubentry::Intermediate(intermediate_entry))));
+                } else {
+                    wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
+                        .push(Rc::new(RefCell::new(WisphaSubentry::Immediate(sub_entry))));
                 }
-                wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
-                    .push(Rc::new(RefCell::new(sub_entry)));
             }
         }
     }
