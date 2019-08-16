@@ -86,7 +86,7 @@ impl WisphaEntry {
                     format!("{}{}{}{}",
                             entry_file_path_header_string,
                             wispha::LINE_SEPARATOR,
-                            entry.entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?,
+                            entry.entry_file_path.to_str().ok_or(GeneratorError::NameNotValid(entry.entry_file_path.clone()))?,
                             wispha::LINE_SEPARATOR)
                 }
                 WisphaFatEntry::Immediate(entry) => {

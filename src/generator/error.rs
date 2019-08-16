@@ -1,12 +1,12 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Debug, Result};
-use std::io;
+use std::path::PathBuf;
 
 pub enum GeneratorError {
-    DirCannotRead,
-    PathIsNotDir,
-    NameNotDetermined,
-    NameNotValid,
+    DirCannotRead(PathBuf),
+    PathIsNotDir(PathBuf),
+    NameNotDetermined(PathBuf),
+    NameNotValid(PathBuf),
     Unexpected,
 }
 

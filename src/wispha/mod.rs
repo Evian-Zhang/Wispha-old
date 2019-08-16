@@ -13,6 +13,7 @@ const DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
 const DEFAULT_NAME: &str = "default name";
 const DEFAULT_DESCRIPTION: &str = "default description";
 const DEFAULT_PATH: &str = "default path";
+const DEFAULT_FILE_PATH: &str = "default file path";
 
 const DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
 
@@ -46,6 +47,7 @@ pub struct WisphaEntryProperties {
     pub name: String,
     pub description: String,
     pub absolute_path: PathBuf,
+    pub file_path: PathBuf,
 }
 
 pub struct WisphaIntermediateEntry {
@@ -97,6 +99,7 @@ impl Clone for WisphaEntryProperties {
             name: self.name.clone(),
             description: self.description.clone(),
             absolute_path: self.absolute_path.clone(),
+            file_path:self.file_path.clone(),
         }
     }
 }
@@ -155,6 +158,7 @@ impl WisphaEntry {
             name: String::from(DEFAULT_NAME),
             description: String::from(DEFAULT_DESCRIPTION),
             absolute_path: PathBuf::from(DEFAULT_PATH),
+            file_path: PathBuf::from(DEFAULT_FILE_PATH),
         };
 
         let sup_entry: RefCell<Weak<RefCell<WisphaFatEntry>>> = RefCell::new(Weak::new());

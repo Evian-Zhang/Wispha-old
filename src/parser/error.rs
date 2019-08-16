@@ -1,13 +1,22 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Debug, Result};
+use std::path::PathBuf;
+
+use crate::wispha::WisphaEntryType;
+
+pub struct ParserErrorInfo {
+    pub path: PathBuf,
+    pub property: Option<String>,
+}
 
 pub enum ParserError {
-    AbsolutePathEmpty,
-    NameEmpty,
-    EntryFileTypeEmpty,
-    UnrecognizedEntryFileType,
-    InvalidPath,
-    FileCannotRead,
+    AbsolutePathEmpty(ParserErrorInfo),
+    NameEmpty(ParserErrorInfo),
+    EntryFileTypeEmpty(ParserErrorInfo),
+    UnrecognizedEntryFileType(ParserErrorInfo, String),
+    InvalidPath(ParserErrorInfo, PathBuf),
+    FileCannotRead(ParserErrorInfo, PathBuf),
+    DirectoryNotDetermined(ParserErrorInfo, PathBuf),
     Unexpected,
 }
 

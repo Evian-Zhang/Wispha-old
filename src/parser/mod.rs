@@ -8,8 +8,8 @@ use std::fs;
 use std::env;
 use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 
-mod error;
-use error::ParserError;
+pub mod error;
+use error::{ParserErrorInfo, ParserError};
 use std::cell::RefCell;
 
 type Result<T> = std::result::Result<T, ParserError>;
@@ -19,13 +19,28 @@ struct RawWisphaMember {
     body: String,
 }
 
-pub fn parse(raw_content: String, root_dir: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+pub fn parse(file_path: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    let content = fs::read_to_string(&file_path)
+        .or(Err(ParserError::FileCannotRead(
+            ParserErrorInfo {
+                path: file_path.clone(),
+                property: None
+            },
+            file_path.clone(),
+        )))?;
+    let root_dir = file_path.parent().ok_or(ParserError::DirectoryNotDetermined(
+        ParserErrorInfo {
+            path: file_path.clone(),
+            property: None
+        },
+        file_path.clone(),
+    ))?.to_path_buf();
     env::set_var(wispha::ROOT_DIR_VAR, &root_dir.to_str().ok_or(ParserError::Unexpected)?);
-    let root = parse_with_depth(&raw_content, 0, root_dir)?;
+    let root = parse_with_depth(&content, 0, &root_dir, &file_path)?;
     Ok(root)
 }
 
-fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf, file_path: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
     let raw_wispha_members = get_raw_wispha_members(&content, depth)?;
 
     let mut intermediate_entry: Option<WisphaIntermediateEntry> = None;
@@ -38,29 +53,52 @@ fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf) -> Result<Rc<Re
     }
 
     if let Some(intermediate_entry) = intermediate_entry {
-        let actual_path = actual_path(&intermediate_entry.entry_file_path, Some(&dir))?;
-        let content = fs::read_to_string(&actual_path).or(Err(ParserError::FileCannotRead))?;
+        let actual_path = actual_path(&intermediate_entry.entry_file_path, Some(&dir), &file_path, None)?;
+        let content = fs::read_to_string(&actual_path).or(Err(ParserError::FileCannotRead(
+            ParserErrorInfo {
+                path: file_path.clone(),
+                property: None
+            },
+            actual_path.clone(),
+        )))?;
         return parse_with_depth(&content,
                                 0,
                                 &actual_path.parent().ok_or(ParserError::Unexpected)?
-                                    .to_path_buf());
+                                    .to_path_buf(),
+                                &actual_path);
     }
 
     let wispha_entry = Rc::new(RefCell::new(WisphaFatEntry::Immediate(WisphaEntry::default())));
+    wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
+        .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
+        .properties.file_path = file_path.clone();
     for raw_wispha_member in &raw_wispha_members {
         let body = raw_wispha_member.body.clone();
         match raw_wispha_member.header.as_str() {
             wispha::ABSOLUTE_PATH_HEADER => {
                 if body.is_empty() {
-                    return Err(ParserError::AbsolutePathEmpty);
+                    return Err(ParserError::AbsolutePathEmpty(
+                        ParserErrorInfo {
+                            path: file_path.clone(),
+                            property: Some(wispha::ABSOLUTE_PATH_HEADER.to_string())
+                        }
+                    ));
                 }
                 wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .properties.absolute_path = actual_path(&PathBuf::from(&body), Some(dir))?;
+                    .properties.absolute_path = actual_path(&PathBuf::from(&body),
+                                                            Some(dir),
+                                                            file_path,
+                                                            Some(wispha::ABSOLUTE_PATH_HEADER.to_string()))?;
             },
             wispha::NAME_HEADER => {
                 if body.is_empty() {
-                    return Err(ParserError::NameEmpty);
+                    return Err(ParserError::NameEmpty(
+                        ParserErrorInfo {
+                            path: file_path.clone(),
+                            property: Some(wispha::NAME_HEADER.to_string())
+                        }
+                    ));
                 }
                 wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
@@ -69,8 +107,14 @@ fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf) -> Result<Rc<Re
             wispha::ENTRY_TYPE_HEADER => {
                 wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .properties.entry_type = WisphaEntryType::from(body)
-                    .ok_or(ParserError::UnrecognizedEntryFileType)?;
+                    .properties.entry_type = WisphaEntryType::from(body.clone())
+                    .ok_or(ParserError::UnrecognizedEntryFileType(
+                        ParserErrorInfo {
+                            path: file_path.clone(),
+                            property: Some(wispha::ENTRY_TYPE_HEADER.to_string())
+                        },
+                        body.clone(),
+                    ))?;
             },
             wispha::DESCRIPTION_HEADER => {
                 wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
@@ -78,7 +122,7 @@ fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf) -> Result<Rc<Re
                     .properties.description = body
             },
             wispha::SUB_ENTRIES_HEADER => {
-                let mut sub_entry = RefCell::new(parse_with_depth(&body, depth + 1, &dir)?);
+                let mut sub_entry = RefCell::new(parse_with_depth(&body, depth + 1, &dir, &file_path)?);
                 sub_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
@@ -145,13 +189,19 @@ fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<RawWisphaM
     Ok(raw_wispha_members)
 }
 
-fn actual_path(raw: &PathBuf, current_dir: Option<&PathBuf>) -> Result<PathBuf> {
+fn actual_path(raw: &PathBuf, current_dir: Option<&PathBuf>, file_path: &PathBuf, property: Option<String>) -> Result<PathBuf> {
     if raw.is_absolute() {
         return Ok(raw.clone());
     }
 
     if raw.starts_with(wispha::ROOT_DIR) {
-        let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).or(Err(ParserError::InvalidPath))?);
+        let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).or(Err(ParserError::InvalidPath(
+            ParserErrorInfo {
+                path: file_path.clone(),
+                property,
+            },
+            raw.clone(),
+        )))?);
         let relative_path = raw.strip_prefix(wispha::ROOT_DIR).or(Err(ParserError::Unexpected))?.to_path_buf();
         return Ok(root_dir.join(relative_path));
     }
@@ -160,5 +210,11 @@ fn actual_path(raw: &PathBuf, current_dir: Option<&PathBuf>) -> Result<PathBuf> 
         return Ok(current_dir.join(&raw));
     }
 
-    Err(ParserError::InvalidPath)
+    Err(ParserError::InvalidPath(
+        ParserErrorInfo {
+            path: file_path.clone(),
+            property,
+        },
+        raw.clone(),
+    ))
 }
