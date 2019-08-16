@@ -5,7 +5,7 @@ use std::ops::Add;
 use std::fmt::Write as FmtWrite;
 use std::io::Write as IoWrite;
 use std::rc::Rc;
-use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaSubentry, WisphaIntermediateEntry};
+use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 use crate::generator::{self, error::GeneratorError};
 
 type Result<T> = std::result::Result<T, GeneratorError>;
@@ -78,7 +78,7 @@ impl WisphaEntry {
             let sub_entry_reference_count_pointer = Rc::clone(sub_entry);
             let sub_entry = &*sub_entry_reference_count_pointer.try_borrow().or(Err(GeneratorError::Unexpected))?;
             let sub_entry_content = match sub_entry {
-                WisphaSubentry::Intermediate(entry) => {
+                WisphaFatEntry::Intermediate(entry) => {
                     let entry_file_path_header_string = format!("{}{} [{}]",
                                                                 begin_mark,
                                                                 wispha::BEGIN_MARK,
@@ -89,7 +89,7 @@ impl WisphaEntry {
                             entry.entry_file_path.to_str().ok_or(GeneratorError::NameNotValid)?,
                             wispha::LINE_SEPARATOR)
                 }
-                WisphaSubentry::Immediate(entry) => {
+                WisphaFatEntry::Immediate(entry) => {
                     entry.to_file_string(depth + 1, root_dir)?
                 }
             };

@@ -5,7 +5,7 @@ use std::io;
 use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use std::ops::Add;
-use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaSubentry, WisphaIntermediateEntry};
+use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 use crate::generator::error::GeneratorError;
 use std::borrow::Borrow;
 
@@ -40,63 +40,11 @@ pub fn generate() -> Result<()> {
 //    }
 //}
 
-//pub fn generate_wispha_entry_at_path(path: &PathBuf, sup_entry: Weak<WisphaEntry>) -> Result<WisphaEntry> {
-//    let mut wispha_entry = WisphaEntry::default();
-//
-//    wispha_entry.properties.name = path.file_name().ok_or(GeneratorError::NameNotDetermined)?
-//        .to_str().ok_or(GeneratorError::NameNotValid)?
-//        .to_string();
-//
-//    wispha_entry.properties.absolute_path = path.clone();
-//
-//    let (entry_type, entry_file_path) = match path.is_dir() {
-//        true => (
-//            WisphaEntryType::Directory,
-//            Some(PathBuf::from(&wispha_entry.properties.name)
-//                .join(PathBuf::from(&DEFAULT_FILE_NAME_STR))
-//            )
-//        ),
-//        false => (WisphaEntryType::File, None),
-//    };
-//
-//    wispha_entry.properties.entry_type = entry_type;
-//
-//    wispha_entry.entry_file_path = entry_file_path;
-//
-//    Ok(wispha_entry)
-//}
-
 pub fn get_ignored_files_at_dir(dir: &PathBuf) -> Vec<PathBuf> {
     Vec::new()
 }
 
-//pub fn generate_from(path: &PathBuf, sup_entry: Weak<WisphaEntry>) -> Result<Rc<WisphaEntry>> {
-//    let root = RefCell::new(Rc::new(generate_wispha_entry_at_path(path, sup_entry)?));
-//    if path.is_dir() {
-//        let ignored_files = get_ignored_files_at_dir(&path);
-//        for entry in fs::read_dir(path).or(Err(GeneratorError::DirCannotRead))? {
-//            let entry = entry.or(Err(GeneratorError::Unexpected))?;
-//            if !ignored_files.contains(&entry.path()) {
-//                let wispha_entry = generate_from(
-//                    &entry.path(),
-//                    Rc::downgrade(&*root.try_borrow().or(Err(GeneratorError::Unexpected))?)
-//                )?;
-//
-//                // May be removed
-//                root.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
-//                    .sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
-//                    .push(wispha_entry);
-//            }
-//        }
-//    }
-//
-//    let root = root.into_inner();
-//    let root_file_string = root.to_file_string(0)?;
-//    println!("\n\n\n\n\n{}", root_file_string);
-//    Ok(root)
-//}
-
-fn generate_intermediate_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
+fn generate_link_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
     let mut wispha_entry = WisphaEntry::default();
 
     wispha_entry.properties.name = path.file_name().ok_or(GeneratorError::NameNotDetermined)?
@@ -114,7 +62,7 @@ fn generate_intermediate_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
 }
 
 pub fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf) -> Result<WisphaEntry> {
-    let mut wispha_entry = generate_intermediate_file_at_path(path)?;
+    let mut wispha_entry = generate_link_file_at_path(path)?;
     if path.is_dir() {
         let ignored_files = get_ignored_files_at_dir(&path);
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead))? {
@@ -135,10 +83,10 @@ pub fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf) -> Result<Wisph
                     };
 
                     wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
-                        .push(Rc::new(RefCell::new(WisphaSubentry::Intermediate(intermediate_entry))));
+                        .push(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(intermediate_entry))));
                 } else {
                     wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
-                        .push(Rc::new(RefCell::new(WisphaSubentry::Immediate(sub_entry))));
+                        .push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(sub_entry))));
                 }
             }
         }

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::fs;
 use std::env;
-use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaSubentry, WisphaIntermediateEntry};
+use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 
 mod error;
 use error::ParserError;
@@ -19,11 +19,13 @@ struct RawWisphaMember {
     body: String,
 }
 
-pub fn parse(raw_content: String) {
-
+pub fn parse(raw_content: String, root_dir: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    env::set_var(wispha::ROOT_DIR_VAR, &root_dir.to_str().ok_or(ParserError::Unexpected)?);
+    let root = parse_with_depth(&raw_content, 0, root_dir)?;
+    Ok(root)
 }
 
-pub fn parse_with_depth(content: String, depth: u32, dir: &PathBuf) -> Result<Rc<RefCell<WisphaSubentry>>> {
+fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
     let raw_wispha_members = get_raw_wispha_members(&content, depth)?;
 
     let mut intermediate_entry: Option<WisphaIntermediateEntry> = None;
@@ -38,13 +40,13 @@ pub fn parse_with_depth(content: String, depth: u32, dir: &PathBuf) -> Result<Rc
     if let Some(intermediate_entry) = intermediate_entry {
         let actual_path = actual_path(&intermediate_entry.entry_file_path, Some(&dir))?;
         let content = fs::read_to_string(&actual_path).or(Err(ParserError::FileCannotRead))?;
-        return parse_with_depth(content,
+        return parse_with_depth(&content,
                                 0,
                                 &actual_path.parent().ok_or(ParserError::Unexpected)?
                                     .to_path_buf());
     }
 
-    let wispha_entry = Rc::new(RefCell::new(WisphaSubentry::Immediate(WisphaEntry::default())));
+    let wispha_entry = Rc::new(RefCell::new(WisphaFatEntry::Immediate(WisphaEntry::default())));
     for raw_wispha_member in &raw_wispha_members {
         let body = raw_wispha_member.body.clone();
         match raw_wispha_member.header.as_str() {
@@ -54,7 +56,7 @@ pub fn parse_with_depth(content: String, depth: u32, dir: &PathBuf) -> Result<Rc
                 }
                 wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .properties.absolute_path = PathBuf::from(body);
+                    .properties.absolute_path = actual_path(&PathBuf::from(&body), Some(dir))?;
             },
             wispha::NAME_HEADER => {
                 if body.is_empty() {
@@ -76,7 +78,7 @@ pub fn parse_with_depth(content: String, depth: u32, dir: &PathBuf) -> Result<Rc
                     .properties.description = body
             },
             wispha::SUB_ENTRIES_HEADER => {
-                let mut sub_entry = RefCell::new(parse_with_depth(body, depth + 1, &dir)?);
+                let mut sub_entry = RefCell::new(parse_with_depth(&body, depth + 1, &dir)?);
                 sub_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .try_borrow_mut().or(Err(ParserError::Unexpected))?
                     .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
@@ -150,7 +152,8 @@ fn actual_path(raw: &PathBuf, current_dir: Option<&PathBuf>) -> Result<PathBuf> 
 
     if raw.starts_with(wispha::ROOT_DIR) {
         let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).or(Err(ParserError::InvalidPath))?);
-        return Ok(root_dir.join(&raw));
+        let relative_path = raw.strip_prefix(wispha::ROOT_DIR).or(Err(ParserError::Unexpected))?.to_path_buf();
+        return Ok(root_dir.join(relative_path));
     }
 
     if let Some(current_dir) = current_dir {
