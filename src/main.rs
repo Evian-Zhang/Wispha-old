@@ -2,6 +2,7 @@ mod wispha;
 mod parser;
 mod generator;
 mod commandline;
+mod ignorer;
 mod error;
 
 use error::MainError;
