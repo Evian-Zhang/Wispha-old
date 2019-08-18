@@ -4,6 +4,11 @@ use std::usize;
 
 use unicode_segmentation::{UnicodeSegmentation, Graphemes};
 
+mod error;
+use error::IgnoreError;
+
+type Result<T> = std::result::Result<T, IgnoreError>;
+
 fn do_wild(pattern: &String, text: &String) -> bool {
     let mut pattern = UnicodeSegmentation::graphemes(pattern.as_str(), true);
     let mut text = UnicodeSegmentation::graphemes(text.as_str(), true);
@@ -11,14 +16,14 @@ fn do_wild(pattern: &String, text: &String) -> bool {
     do_wild_grapheme(&mut pattern, &mut text)
 }
 
-fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text_index: usize) -> bool {
-    let mut pattern_index = start_index;
+fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, initial_pattern_index: usize, initial_text_index: usize) -> Result<bool> {
+    let mut pattern_index = initial_pattern_index;
+    let mut text_index = initial_text_index;
     while pattern.get(pattern_index) != None {
         let mut match_slash = false;
         let mut pattern_grapheme = pattern.get(pattern_index);
-        let mut text_index = text_index;
-        if text.get(text_index) == None && pattern_grapheme == Some(&"*") {
-            return false;
+        if text.get(text_index) == None && pattern_grapheme != Some(&"*") {
+            return Ok(false); // The original version is equivalent of `return Err`. But I can't understand.
         }
         let text_grapheme = text.get(text_index);
         match *pattern_grapheme.unwrap() {
@@ -26,7 +31,7 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
                 pattern_index += 1;
                 pattern_grapheme = pattern.get(pattern_index);
                 if text_grapheme != pattern_grapheme {
-                    return false;
+                    return Ok(false);
                 }
 
                 text_index += 1;
@@ -36,7 +41,7 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
 
             "?" => {
                 if text_grapheme == Some(&"/") {
-                    return false;
+                    return Ok(false);
                 }
 
                 text_index += 1;
@@ -55,8 +60,9 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
                         if (overflow || pattern.get(previous_pattern_index) == Some(&"/")) &&
                             (pattern.get(pattern_index) == None || pattern.get(pattern_index) == Some(&"/") ||
                                 (pattern.get(pattern_index) == Some(&"\\") && pattern.get(pattern_index + 1) == Some(&"/"))) {
-                            if pattern.get(pattern_index) == Some(&"/") && do_wild_vec(&pattern, &text, pattern_index, text_index) {
-                                return true;
+                            if pattern.get(pattern_index) == Some(&"/") &&
+                                do_wild_vec(&pattern, &text, pattern_index + 1, text_index)? {
+                                return Ok(true);
                             }
                             match_slash = true;
                         } else {
@@ -68,14 +74,14 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
                     if pattern.get(pattern_index) == None {
                         if !match_slash {
                             if text.contains(&"/") {
-                                return false;
+                                return Ok(false);
                             }
-                            return true;
+                            return Ok(true);
                         }
                     } else if !match_slash && pattern.get(pattern_index) == Some(&"/") {
                         let slash = text.iter().position(|&r| { r == "/" });
                         if slash == None {
-                            return false;
+                            return Ok(false);
                         }
                         text_index = slash.unwrap();
                         break;
@@ -85,7 +91,7 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
                             break;
                         }
                         let tmp = pattern.get(pattern_index);
-                        if !(tmp == Some(&"*") || tmp == Some(&"?") || tmp == Some(&"[") || tmp == Some(&"\\")) {
+                        if !(tmp == Some(&"*") || tmp == Some(&"?") /* || tmp == Some(&"[") */ || tmp == Some(&"\\")) {
                             while text.get(text_index) != None &&
                                 (match_slash || text.get(text_index) != Some(&"/")) {
                                 if text.get(text_index) == pattern.get(pattern_index) {
@@ -94,12 +100,12 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
                                 text_index += 1;
                             }
                             if text.get(text_index) != pattern.get(pattern_index) {
-                                return false;
+                                return Ok(false);
                             }
                         }
-                        if do_wild_vec(&pattern, &text, pattern_index, text_index) {
+                        if do_wild_vec(&pattern, &text, pattern_index, text_index)? {
                             if !match_slash {
-                                return true;
+                                return Ok(true);
                             }
                         } else if !match_slash && text.get(text_index) == Some(&"/") {
                             return false;
@@ -111,6 +117,40 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
                 break;
             }
 
+//            "[" => {
+//                pattern_index += 1;
+//                let negated = (pattern.get(pattern_index) == Some(&"!"));
+//                if negated {
+//                    pattern_index += 1;
+//                }
+//                let mut matched = false;
+//                let mut previou_grapheme: Option<&str> = None;
+//                loop {
+//                    if pattern.get(pattern_index) == None {
+//                        return false;
+//                    }
+//                    if pattern.get(pattern_index) == Some(&"\\") {
+//                        pattern_index += 1;
+//                        if pattern.get(pattern_index) == None {
+//                            return false;
+//                        }
+//                        if text.get(text_index) == pattern.get(pattern_index) {
+//                            matched = true;
+//                        }
+//                    } else if pattern.get(pattern_index) == Some(&"-") &&
+//                        previou_grapheme != None && pattern.get(pattern_index + 1) != None &&
+//                        pattern.get(pattern_index + 1) != Some(&"]") {
+//                        pattern_index += 1;
+//                        if pattern.get(pattern_index) == Some(&"\\") {
+//                            pattern_index += 1;
+//                            if pattern.get(pattern_index) == None {
+//                                return false;
+//                            }
+//                        }
+//
+//                    }
+//                }
+//            }
 
             _ => {
                 if text_grapheme != pattern_grapheme {
@@ -127,7 +167,11 @@ fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text
         pattern_index += 1;
     }
 
-    false
+    if text.get(text_index) == None {
+        return false;
+    } else {
+        return true;
+    }
 }
 
 fn do_wild_grapheme(pattern: &mut Graphemes, text: &mut Graphemes) -> bool {
