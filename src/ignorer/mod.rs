@@ -11,6 +11,125 @@ fn do_wild(pattern: &String, text: &String) -> bool {
     do_wild_grapheme(&mut pattern, &mut text)
 }
 
+fn do_wild_vec(pattern: &Vec<&str>, text: &Vec<&str>, pattern_index: usize, text_index: usize) -> bool {
+    let mut pattern_index = start_index;
+    while pattern.get(pattern_index) != None {
+        let mut match_slash = false;
+        let mut pattern_grapheme = pattern.get(pattern_index);
+        let mut text_index = text_index;
+        if text.get(text_index) == None && pattern_grapheme == Some(&"*") {
+            return false;
+        }
+        let text_grapheme = text.get(text_index);
+        match *pattern_grapheme.unwrap() {
+            "\\" => {
+                pattern_index += 1;
+                pattern_grapheme = pattern.get(pattern_index);
+                if text_grapheme != pattern_grapheme {
+                    return false;
+                }
+
+                text_index += 1;
+                pattern_index += 1;
+                continue;
+            }
+
+            "?" => {
+                if text_grapheme == Some(&"/") {
+                    return false;
+                }
+
+                text_index += 1;
+                pattern_index += 1;
+                continue;
+            }
+
+            "*" => loop {
+                {
+                    pattern_index += 1;
+                    if pattern.get(pattern_index) == Some(&"*") {
+                        let (previous_pattern_index, overflow) = pattern_index.overflowing_sub(2);
+                        while pattern.get(pattern_index) == Some(&"*") {
+                            pattern_index += 1;
+                        }
+                        if (overflow || pattern.get(previous_pattern_index) == Some(&"/")) &&
+                            (pattern.get(pattern_index) == None || pattern.get(pattern_index) == Some(&"/") ||
+                                (pattern.get(pattern_index) == Some(&"\\") && pattern.get(pattern_index + 1) == Some(&"/"))) {
+                            if pattern.get(pattern_index) == Some(&"/") && do_wild_vec(&pattern, &text, pattern_index, text_index) {
+                                return true;
+                            }
+                            match_slash = true;
+                        } else {
+                            match_slash = false;
+                        }
+                    } else {
+                        match_slash = false;
+                    }
+                    if pattern.get(pattern_index) == None {
+                        if !match_slash {
+                            if text.contains(&"/") {
+                                return false;
+                            }
+                            return true;
+                        }
+                    } else if !match_slash && pattern.get(pattern_index) == Some(&"/") {
+                        let slash = text.iter().position(|&r| { r == "/" });
+                        if slash == None {
+                            return false;
+                        }
+                        text_index = slash.unwrap();
+                        break;
+                    }
+                    loop {
+                        if text.get(text_index) == None {
+                            break;
+                        }
+                        let tmp = pattern.get(pattern_index);
+                        if !(tmp == Some(&"*") || tmp == Some(&"?") || tmp == Some(&"[") || tmp == Some(&"\\")) {
+                            while text.get(text_index) != None &&
+                                (match_slash || text.get(text_index) != Some(&"/")) {
+                                if text.get(text_index) == pattern.get(pattern_index) {
+                                    break;
+                                }
+                                text_index += 1;
+                            }
+                            if text.get(text_index) != pattern.get(pattern_index) {
+                                return false;
+                            }
+                        }
+                        if do_wild_vec(&pattern, &text, pattern_index, text_index) {
+                            if !match_slash {
+                                return true;
+                            }
+                        } else if !match_slash && text.get(text_index) == Some(&"/") {
+                            return false;
+                        }
+                        text_index += 1;
+                    }
+                    return false;
+                }
+                break;
+            }
+
+
+            _ => {
+                if text_grapheme != pattern_grapheme {
+                    return false;
+                }
+
+                text_index += 1;
+                pattern_index += 1;
+                continue;
+            }
+        }
+
+        text_index += 1;
+        pattern_index += 1;
+    }
+
+    false
+}
+
 fn do_wild_grapheme(pattern: &mut Graphemes, text: &mut Graphemes) -> bool {
     let mut text_backup = text.clone();
     let pattern_vec: Vec<&str> = pattern.clone().collect();
