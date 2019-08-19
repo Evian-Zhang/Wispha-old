@@ -5,7 +5,6 @@ use std::cell::RefCell;
 
 mod error;
 use error::WisphaError;
-use crate::wispha::WisphaEntryType::Directory;
 
 type Result<T> = std::result::Result<T, WisphaError>;
 
