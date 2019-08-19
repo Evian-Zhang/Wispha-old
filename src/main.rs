@@ -2,7 +2,6 @@ mod wispha;
 mod parser;
 mod generator;
 mod commandline;
-mod ignorer;
 mod error;
 
 use error::MainError;
@@ -44,6 +43,42 @@ fn error_prefix(error_info: parser::error::ParserErrorInfo) -> String {
     error_prefix
 }
 
+fn deal_with_ignore_error(ignore_error: &ignore::Error) {
+    match ignore_error {
+        ignore::Error::Partial(errors) => {
+            for error in errors {
+                deal_with_ignore_error(&error);
+            }
+        },
+        ignore::Error::WithLineNumber { line, err } => {
+            eprintln!("in line {} ", line);
+            deal_with_ignore_error(&*err);
+        },
+        ignore::Error::WithPath { path, err } => {
+            eprintln!("in the file {} ", path.to_str().unwrap());
+            deal_with_ignore_error(&*err);
+        },
+        ignore::Error::WithDepth { depth, err } => {
+            eprintln!("to the depth {} ", depth);
+            deal_with_ignore_error(&*err);
+        },
+        ignore::Error::Loop { ancestor, child } => {
+            eprintln!("A dead loop occurred because of the {} in {}.", child.to_str().unwrap(), ancestor.to_str().unwrap());
+        },
+        ignore::Error::Io(_) => {
+            eprintln!("IO error. May be lack permission");
+        },
+        ignore::Error::Glob { glob, err } => {
+            let default_value = "".to_string();
+            let glob = glob.as_ref().unwrap_or(&default_value);
+            eprintln!("An error occurred when parsing {}, because {}", glob, err);
+        },
+        _ => {
+
+        }
+    }
+}
+
 fn main() {
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
@@ -66,6 +101,9 @@ fn main() {
                         GeneratorError::NameNotValid(path) => {
                             eprintln!("Path {} contains invalid characters.", path.to_str().unwrap());
                         },
+                        GeneratorError::IgnoreError(ignore_error) => {
+                            deal_with_ignore_error(&ignore_error);
+                        }
                         GeneratorError::Unexpected => {
                             eprintln!("Unexpected error. Please retry.");
                         },

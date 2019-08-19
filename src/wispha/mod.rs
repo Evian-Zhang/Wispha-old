@@ -15,7 +15,8 @@ const DEFAULT_DESCRIPTION: &str = "default description";
 const DEFAULT_PATH: &str = "default path";
 const DEFAULT_FILE_PATH: &str = "default file path";
 
-const DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
+pub const DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
+pub const IGNORE_FILE_NAME_STR: &str = ".wisphaignore";
 
 pub const LINE_SEPARATOR: &str = "\n";
 

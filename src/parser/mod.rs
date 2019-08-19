@@ -178,10 +178,21 @@ fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<RawWisphaM
 
     for caps in regex_pattern.captures_iter(content.as_str()) {
         let header = caps.at(1).ok_or(ParserError::Unexpected)?.to_string();
-        let body = caps.at(2).ok_or(ParserError::Unexpected)?
-            .trim_start_matches('\n')
-            .trim_end_matches('\n')
-            .to_string();
+        let raw_body = caps.at(2).ok_or(ParserError::Unexpected)?.to_string();
+
+        let body_pattern = r#"\A\s*(\S[\s\S]*\S)\s*\z"#;
+        let body_regex_pattern = Regex::with_options(body_pattern,
+                                                RegexOptions::REGEX_OPTION_MULTILINE,
+                                                Syntax::default())
+            .or(Err(ParserError::Unexpected))?;
+        let body = match body_regex_pattern.captures(raw_body.as_str()) {
+            Some(cap) => {
+                cap.at(1).unwrap_or("")
+            },
+            None => {
+                ""
+            },
+        }.to_string();
         let raw_wispha_member = RawWisphaMember { header, body };
         raw_wispha_members.push(raw_wispha_member);
     }

@@ -5,20 +5,18 @@ use std::io;
 use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use std::ops::Add;
-use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
+use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 use crate::generator::error::GeneratorError;
-use std::borrow::Borrow;
+use ignore::{Walk, WalkBuilder};
 
 pub mod error;
 mod converter;
 
 pub type Result<T> = std::result::Result<T, GeneratorError>;
 
-static DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
-
 pub fn generate(path: &PathBuf) -> Result<()> {
-    let root = generate_file_at_path(&path, &path)?;
-    fs::write(&path.join(PathBuf::from(&DEFAULT_FILE_NAME_STR)), &root.to_file_string(0, &path)?)
+    let root = generate_file_at_path(&path, &path, &get_ignored_files_from_root(path)?)?;
+    fs::write(&path.join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR)), &root.to_file_string(0, &path)?)
         .or(Err(GeneratorError::Unexpected))?;
     Ok(())
 }
@@ -35,8 +33,19 @@ pub fn generate(path: &PathBuf) -> Result<()> {
 //    }
 //}
 
-fn get_ignored_files_at_dir(dir: &PathBuf) -> Vec<PathBuf> {
-    Vec::new()
+fn get_ignored_files_from_root(root_dir: &PathBuf) -> Result<Vec<PathBuf>> {
+    let walk = WalkBuilder::new(root_dir)
+        .standard_filters(false)
+        .parents(true)
+        .add_custom_ignore_filename(wispha::IGNORE_FILE_NAME_STR)
+        .build();
+
+    let mut ignored_files: Vec<PathBuf> = Vec::new();
+    for dir_entry in walk {
+        let dir_entry = dir_entry?;
+        ignored_files.push(dir_entry.path().to_path_buf());
+    }
+    Ok(ignored_files)
 }
 
 fn generate_link_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
@@ -56,22 +65,21 @@ fn generate_link_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
     Ok(wispha_entry)
 }
 
-fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf) -> Result<WisphaEntry> {
+fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec<PathBuf>) -> Result<WisphaEntry> {
     let mut wispha_entry = generate_link_file_at_path(path)?;
     if path.is_dir() {
-        let ignored_files = get_ignored_files_at_dir(&path);
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
-            if !ignored_files.contains(&entry.path()) {
-                let mut sub_entry = generate_file_at_path(&entry.path(), root_dir)?;
+            if ignored_files.contains(&entry.path()) {
+                let mut sub_entry = generate_file_at_path(&entry.path(), root_dir, ignored_files)?;
                 if (&entry.path()).is_dir() {
                     let absolute_path = sub_entry.properties.absolute_path
-                        .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
+                        .join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
                     fs::write(absolute_path, &sub_entry.to_file_string(0, root_dir)?)
                         .or(Err(GeneratorError::Unexpected))?;
 
                     let relative_path = PathBuf::from(&sub_entry.properties.name)
-                        .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
+                        .join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
 
                     let intermediate_entry = WisphaIntermediateEntry {
                         entry_file_path: relative_path,

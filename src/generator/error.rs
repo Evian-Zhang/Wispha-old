@@ -7,6 +7,7 @@ pub enum GeneratorError {
     PathIsNotDir(PathBuf),
     NameNotDetermined(PathBuf),
     NameNotValid(PathBuf),
+    IgnoreError(ignore::Error),
     Unexpected,
 }
 
@@ -23,5 +24,11 @@ impl Display for GeneratorError {
 impl Debug for GeneratorError {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "")
+    }
+}
+
+impl From<ignore::Error> for GeneratorError {
+    fn from(err: ignore::Error) -> Self {
+        GeneratorError::IgnoreError(err)
     }
 }
