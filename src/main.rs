@@ -142,18 +142,6 @@ fn deal_with_parser_error(parser_error: &ParserError) {
     }
 }
 
-const MAX_INPUT_LENGTH: u64 = 256;
-
-fn continue_program(manipulator: Manipulator) {
-    let mut stdin = io::stdin();
-    let mut input = String::new();
-    loop {
-        input.clear();
-        stdin.read_line(&mut input);
-
-    }
-}
-
 fn main() {
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
@@ -162,8 +150,13 @@ fn main() {
             let acutual_path_result = actual_path(&path);
             if let Ok(actual_path) = acutual_path_result {
                 let result = generator::generate(&actual_path);
-                if let Err(generator_error) = result {
-                    deal_with_generator_error(&generator_error);
+                match result {
+                    Ok(_) => {
+                        println!("Successfully generate!");
+                    },
+                    Err(generator_error) => {
+                        deal_with_generator_error(&generator_error);
+                    },
                 }
             } else {
                 eprintln!("Path {} does not exist.", path.to_str().unwrap());
@@ -173,11 +166,13 @@ fn main() {
             let path = &look.path;
             let acutual_path_result = actual_path(&path);
             if let Ok(actual_path) = acutual_path_result {
+                println!("Working on looking...");
                 let result = parser::parse(&actual_path);
                 match result {
                     Ok(root) => {
                         let manipulator = Manipulator::new(&root, &root);
-                        continue_program(manipulator);
+                        println!("Looking ready!");
+                        commandline::continue_program(manipulator);
                     },
                     Err(parser_error) => {
                         deal_with_parser_error(&parser_error);
