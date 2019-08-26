@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::rc::{Weak, Rc};
 use std::pin::Pin;
 use std::path::PathBuf;
+use std::env;
 
 use crate::wispha::{self, WisphaEntryType, WisphaEntry, WisphaFatEntry, WisphaIntermediateEntry, WisphaEntryProperties};
 
@@ -13,9 +14,9 @@ use std::borrow::Borrow;
 type Result<T> = std::result::Result<T, ManipulatorError>;
 
 pub struct Manipulator {
-    root: Rc<RefCell<WisphaFatEntry>>,
-    current_entry: Rc<RefCell<WisphaFatEntry>>,
-    entries: HashMap<PathBuf, Rc<RefCell<WisphaFatEntry>>>,
+    pub root: Rc<RefCell<WisphaFatEntry>>,
+    pub current_entry: Rc<RefCell<WisphaFatEntry>>,
+    pub entries: HashMap<PathBuf, Rc<RefCell<WisphaFatEntry>>>,
 }
 
 impl Manipulator {
@@ -27,12 +28,16 @@ impl Manipulator {
         Manipulator { root, current_entry, entries }
     }
 
-    pub fn set_current_entry_to_path(&mut self, path: &PathBuf) -> bool {
-        if let Some(target_entry) = self.entries.get(path) {
+    pub fn set_current_entry_to_path(&mut self, path: &PathBuf) -> Result<()> {
+        let current_path = (*self.current_entry).borrow()
+            .get_immediate_entry().unwrap()
+            .properties
+            .absolute_path.clone();
+        if let Some(target_entry) = self.entries.get(&actual_path(&path, &current_path)) {
             self.current_entry = Rc::clone(target_entry);
-            return true;
+            return Ok(());
         } else {
-            return false;
+            return Err(ManipulatorError::PathNoEntry(path.clone()));
         }
     }
 
@@ -56,6 +61,16 @@ impl Manipulator {
             self.current_entry = Rc::clone(super_a_entry);
         }
     }
+
+    pub fn current_path(&self) -> PathBuf {
+        let raw = (*self.current_entry)
+            .borrow()
+            .get_immediate_entry().unwrap()
+            .properties
+            .absolute_path.clone();
+        let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).unwrap());
+        PathBuf::from(wispha::ROOT_DIR).join(raw.strip_prefix(root_dir).unwrap().to_path_buf())
+    }
 }
 
 fn push_into_entries(entry: &Rc<RefCell<WisphaFatEntry>>, entries: &mut HashMap<PathBuf, Rc<RefCell<WisphaFatEntry>>>) {
@@ -64,4 +79,18 @@ fn push_into_entries(entry: &Rc<RefCell<WisphaFatEntry>>, entries: &mut HashMap<
     for sub_entry in &*(*entry).borrow().get_immediate_entry().unwrap().sub_entries.borrow() {
         push_into_entries(sub_entry, entries);
     }
+}
+
+fn actual_path(raw: &PathBuf, current_dir: &PathBuf) -> PathBuf {
+    if raw.is_absolute() {
+        return raw.clone();
+    }
+
+    if raw.starts_with(wispha::ROOT_DIR) {
+        let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).unwrap());
+        let relative_path = raw.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
+        return root_dir.join(relative_path);
+    }
+
+    current_dir.join(&raw)
 }

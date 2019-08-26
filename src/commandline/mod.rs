@@ -3,7 +3,7 @@ use structopt::StructOpt;
 use std::path::PathBuf;
 use std::io::{self, Read, BufReader, BufRead, Write};
 
-use crate::manipulator::Manipulator;
+use crate::manipulator::{Manipulator, error::ManipulatorError};
 use crate::commandline::input_parser::InputParser;
 
 mod error;
@@ -36,20 +36,56 @@ pub struct Look {
 
 const MAX_INPUT_LENGTH: u64 = 256;
 
-pub fn continue_program(manipulator: Manipulator) {
+pub fn continue_program(mut manipulator: Manipulator) {
     let mut input = String::new();
     let stdin = io::stdin();
     let mut bstdin = BufReader::new(stdin.take(MAX_INPUT_LENGTH));
     loop {
-        print!("(wispha)");
+        print!("wispha@{} >", manipulator.current_path().to_str().unwrap());
         io::stdout().flush().unwrap();
         input.clear();
         bstdin.read_line(&mut input).unwrap();
         input = input.trim().to_string();
 
         let input_parser = InputParser::new(input.clone());
-        for token in input_parser {
-            println!("zs{}", token);
+        let mut input_tokens: Vec<String> = input_parser.collect();
+        input_tokens.insert(0, String::from("wispha"));
+        match LookCommand::from_iter_safe(input_tokens) {
+            Ok(look_command) => {
+                match look_command.subcommand {
+                    LookSubcommand::Cd(cd) => {
+                        if let Err(error) = manipulator.set_current_entry_to_path(&cd.path) {
+                            if let ManipulatorError::PathNoEntry(path) = error {
+                                eprintln!("There is no recording of path {}.", path.to_str().unwrap());
+                            }
+                        }
+                    },
+                    LookSubcommand::Quit => {
+                        return;
+                    },
+                }
+            },
+            Err(error) => {
+                println!("{}", error);
+            }
         }
     }
+}
+
+#[derive(StructOpt)]
+pub struct LookCommand {
+    #[structopt(subcommand)]
+    pub subcommand: LookSubcommand,
+}
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+pub enum LookSubcommand {
+    Cd(Cd),
+    Quit,
+}
+
+#[derive(StructOpt)]
+pub struct Cd {
+    pub path: PathBuf,
 }

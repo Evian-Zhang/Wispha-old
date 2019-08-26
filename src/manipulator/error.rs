@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter, Debug, Result};
 use std::path::PathBuf;
 
 pub enum ManipulatorError {
+    PathNoEntry(PathBuf),
     Unexpected,
 }
 
