@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::io::{self, Read, BufReader, BufRead, Write};
 
 use crate::manipulator::Manipulator;
+use crate::commandline::input_parser::InputParser;
 
 mod error;
 mod input_parser;
@@ -45,6 +46,10 @@ pub fn continue_program(manipulator: Manipulator) {
         input.clear();
         bstdin.read_line(&mut input).unwrap();
         input = input.trim().to_string();
-        println!("{}", input);
+
+        let input_parser = InputParser::new(input.clone());
+        for token in input_parser {
+            println!("zs{}", token);
+        }
     }
 }
