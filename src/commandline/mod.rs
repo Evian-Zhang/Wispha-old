@@ -55,8 +55,18 @@ pub fn continue_program(mut manipulator: Manipulator) {
                 match look_command.subcommand {
                     LookSubcommand::Cd(cd) => {
                         if let Err(error) = manipulator.set_current_entry_to_path(&cd.path) {
-                            if let ManipulatorError::PathNoEntry(path) = error {
-                                eprintln!("There is no recording of path {}.", path.to_str().unwrap());
+                            match error {
+                                ManipulatorError::PathNoEntry(path) => {
+                                    eprintln!("There is no recording of path {}.", path.to_str().unwrap());
+                                },
+
+                                ManipulatorError::PathNotExist => {
+                                    eprintln!("Path not exist.");
+                                },
+
+                                _ => {
+
+                                }
                             }
                         }
                     },

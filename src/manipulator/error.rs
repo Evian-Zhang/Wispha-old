@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 pub enum ManipulatorError {
     PathNoEntry(PathBuf),
+    PathNotExist,
     Unexpected,
 }
 

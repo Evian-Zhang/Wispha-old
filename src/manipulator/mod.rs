@@ -33,7 +33,7 @@ impl Manipulator {
             .get_immediate_entry().unwrap()
             .properties
             .absolute_path.clone();
-        if let Some(target_entry) = self.entries.get(&actual_path(&path, &current_path)) {
+        if let Some(target_entry) = self.entries.get(&actual_path(&path, &current_path)?) {
             self.current_entry = Rc::clone(target_entry);
             return Ok(());
         } else {
@@ -81,16 +81,16 @@ fn push_into_entries(entry: &Rc<RefCell<WisphaFatEntry>>, entries: &mut HashMap<
     }
 }
 
-fn actual_path(raw: &PathBuf, current_dir: &PathBuf) -> PathBuf {
+fn actual_path(raw: &PathBuf, current_dir: &PathBuf) -> Result<PathBuf> {
     if raw.is_absolute() {
-        return raw.clone();
+        return Ok(raw.clone());
     }
 
     if raw.starts_with(wispha::ROOT_DIR) {
         let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).unwrap());
         let relative_path = raw.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
-        return root_dir.join(relative_path);
+        return Ok(root_dir.join(relative_path));
     }
 
-    current_dir.join(&raw)
+    Ok(current_dir.join(&raw).canonicalize().or(Err(ManipulatorError::PathNotExist))?)
 }
