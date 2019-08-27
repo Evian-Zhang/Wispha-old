@@ -70,6 +70,14 @@ pub fn continue_program(mut manipulator: Manipulator) {
                             }
                         }
                     },
+
+                    LookSubcommand::Ls => {
+                        let list = manipulator.current_list();
+                        if list.len() > 0 {
+                            println!("{}", list);
+                        }
+                    }
+
                     LookSubcommand::Quit => {
                         return;
                     },
@@ -92,6 +100,7 @@ pub struct LookCommand {
 #[structopt(rename_all = "kebab-case")]
 pub enum LookSubcommand {
     Cd(Cd),
+    Ls,
     Quit,
 }
 

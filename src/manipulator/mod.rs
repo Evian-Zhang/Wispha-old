@@ -71,6 +71,18 @@ impl Manipulator {
         let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).unwrap());
         PathBuf::from(wispha::ROOT_DIR).join(raw.strip_prefix(root_dir).unwrap().to_path_buf())
     }
+
+    pub fn current_list(&self) -> String {
+        let mut names: Vec<String> = Vec::new();
+        for sub_entry in &*(*self.current_entry).borrow().get_immediate_entry().unwrap().sub_entries.borrow() {
+            let sub_entry = Rc::clone(sub_entry);
+            let sub_entry = (*sub_entry).borrow();
+            let sub_entry = sub_entry.get_immediate_entry().unwrap();
+            names.push(sub_entry.properties.name.clone());
+        }
+
+        names.join("\n")
+    }
 }
 
 fn push_into_entries(entry: &Rc<RefCell<WisphaFatEntry>>, entries: &mut HashMap<PathBuf, Rc<RefCell<WisphaFatEntry>>>) {
