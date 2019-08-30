@@ -56,7 +56,7 @@ pub fn continue_program(mut manipulator: Manipulator) {
                     LookSubcommand::Cd(cd) => {
                         if let Err(error) = manipulator.set_current_entry_to_path(&cd.path) {
                             match error {
-                                ManipulatorError::PathNoEntry(path) => {
+                                ManipulatorError::PathNotEntry(path) => {
                                     eprintln!("There is no recording of path {}.", path.to_str().unwrap());
                                 },
 
@@ -71,10 +71,28 @@ pub fn continue_program(mut manipulator: Manipulator) {
                         }
                     },
 
-                    LookSubcommand::Ls => {
-                        let list = manipulator.current_list();
-                        if list.len() > 0 {
-                            println!("{}", list);
+                    LookSubcommand::Ls(ls) => {
+                        match ls.path {
+                            Some(path) => {
+                                match manipulator.list_of_path(&path) {
+                                    Ok(list) => {
+                                        if list.len() > 0 {
+                                            println!("{}", list);
+                                        }
+                                    },
+
+                                    Err(err) => {
+                                        println!("Error!");
+                                    }
+                                }
+                            },
+                            None => {
+                                let list = manipulator.current_list();
+
+                                if list.len() > 0 {
+                                    println!("{}", list);
+                                }
+                            }
                         }
                     }
 
@@ -100,11 +118,16 @@ pub struct LookCommand {
 #[structopt(rename_all = "kebab-case")]
 pub enum LookSubcommand {
     Cd(Cd),
-    Ls,
+    Ls(Ls),
     Quit,
 }
 
 #[derive(StructOpt)]
 pub struct Cd {
     pub path: PathBuf,
+}
+
+#[derive(StructOpt)]
+pub struct Ls {
+    pub path: Option<PathBuf>,
 }

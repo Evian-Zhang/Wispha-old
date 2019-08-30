@@ -37,7 +37,7 @@ impl Manipulator {
             self.current_entry = Rc::clone(target_entry);
             return Ok(());
         } else {
-            return Err(ManipulatorError::PathNoEntry(path.clone()));
+            return Err(ManipulatorError::PathNotEntry(path.clone()));
         }
     }
 
@@ -82,6 +82,33 @@ impl Manipulator {
         }
 
         names.join("\n")
+    }
+
+    pub fn list_of_path(&self, path: &PathBuf) -> Result<String> {
+        let current_path = (*self.current_entry)
+            .borrow()
+            .get_immediate_entry().unwrap()
+            .properties
+            .absolute_path.clone();
+        let actual_path = actual_path(path, &current_path)?;
+        match self.entries.get(&actual_path) {
+            Some(entry) => {
+                let mut names: Vec<String> = Vec::new();
+                let entry = Rc::clone(entry);
+                for sub_entry in &*(*entry).borrow().get_immediate_entry().unwrap().sub_entries.borrow() {
+                    let sub_entry = Rc::clone(sub_entry);
+                    let sub_entry = (*sub_entry).borrow();
+                    let sub_entry = sub_entry.get_immediate_entry().unwrap();
+                    names.push(sub_entry.properties.name.clone());
+                }
+
+                Ok(names.join("\n"))
+            },
+
+            None => {
+                Err(ManipulatorError::PathNotEntry(path.clone()))
+            }
+        }
     }
 }
 
