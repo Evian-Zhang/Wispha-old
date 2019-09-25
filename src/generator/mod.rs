@@ -14,6 +14,7 @@ mod converter;
 
 pub type Result<T> = std::result::Result<T, GeneratorError>;
 
+// treat `path` as root. `path` is absolute
 pub fn generate(path: &PathBuf) -> Result<()> {
     let root = generate_file_at_path(&path, &path, &get_ignored_files_from_root(path)?)?;
     fs::write(&path.join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR)), &root.to_file_string(0, &path)?)
@@ -21,18 +22,7 @@ pub fn generate(path: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-//fn print(entry: &WisphaEntry, indent: i32) {
-//    let mut blank = 0;
-//    while blank < indent {
-//        print!("\t");
-//        blank += 1;
-//    }
-//    println!("{}", entry.properties.name);
-//    for sub_entry in &*entry.sub_entries.borrow() {
-//        print(&*(**sub_entry).borrow(), indent + 1);
-//    }
-//}
-
+// traverse from `root_dir` to find .wisphaignore file. `root_dir` is absolute. If there is none, return `Ok(Vec::new())`
 fn get_ignored_files_from_root(root_dir: &PathBuf) -> Result<Vec<PathBuf>> {
     let walk = WalkBuilder::new(root_dir)
         .standard_filters(false)
@@ -48,7 +38,8 @@ fn get_ignored_files_from_root(root_dir: &PathBuf) -> Result<Vec<PathBuf>> {
     Ok(ignored_files)
 }
 
-fn generate_link_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
+// `path` is absolute
+fn generate_file_at_path_without_sub_and_sup(path: &PathBuf) -> Result<WisphaEntry> {
     let mut wispha_entry = WisphaEntry::default();
 
     wispha_entry.properties.name = path.file_name().ok_or(GeneratorError::NameNotDetermined(path.clone()))?
@@ -65,8 +56,9 @@ fn generate_link_file_at_path(path: &PathBuf) -> Result<WisphaEntry> {
     Ok(wispha_entry)
 }
 
+// `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative
 fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec<PathBuf>) -> Result<WisphaEntry> {
-    let mut wispha_entry = generate_link_file_at_path(path)?;
+    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;

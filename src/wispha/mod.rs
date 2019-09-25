@@ -46,14 +46,16 @@ pub struct WisphaEntryProperties {
     pub entry_type: WisphaEntryType,
     pub name: String,
     pub description: String, // the whitespace is not allowed at the begin and end
-    pub absolute_path: PathBuf, // is absolute in memory, and starts with `$ROOT_DIR` when saved
+    pub absolute_path: PathBuf, // is absolute in memory, and starts with `$ROOT_DIR` when saved, can also be absolute or relative
     pub file_path: PathBuf, // the absolute path of the file where the entry is directly saved, i.e. not intermediate. Not saved in file
 }
 
+// like soft link
 pub struct WisphaIntermediateEntry {
     pub entry_file_path: PathBuf, // tells where to find the actual file. The path can be absolute, relative or start with `$ROOT_DIR`
 }
 
+// the structure used as tree node
 pub enum WisphaFatEntry {
     Intermediate(WisphaIntermediateEntry),
     Immediate(WisphaEntry),
@@ -61,7 +63,7 @@ pub enum WisphaFatEntry {
 
 pub struct WisphaEntry {
     pub properties:  WisphaEntryProperties,
-    pub sup_entry: RefCell<Weak<RefCell<WisphaFatEntry>>>,
+    pub sup_entry: RefCell<Weak<RefCell<WisphaFatEntry>>>, // for the root node, `*sup_entry` is Weak::new()
     pub sub_entries: RefCell<Vec<Rc<RefCell<WisphaFatEntry>>>>,
 }
 
