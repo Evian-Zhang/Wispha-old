@@ -37,21 +37,21 @@ pub const ROOT_DIR: &str = "$ROOT_DIR";
 pub const ROOT_DIR_VAR: &str = "WISPHA_ROOT_DIR";
 
 pub enum WisphaEntryType {
-    Directory,
-    File,
-    ProgramEntry,
+    Directory, // if the entry is a directory
+    File, // if the entry is a file in a directory
+    ProgramEntry, // if the entry is a programmatic stuff in a file
 }
 
 pub struct WisphaEntryProperties {
     pub entry_type: WisphaEntryType,
     pub name: String,
-    pub description: String,
-    pub absolute_path: PathBuf,
-    pub file_path: PathBuf,
+    pub description: String, // the whitespace is not allowed at the begin and end
+    pub absolute_path: PathBuf, // is absolute in memory, and starts with `$ROOT_DIR` when saved
+    pub file_path: PathBuf, // the absolute path of the file where the entry is directly saved, i.e. not intermediate. Not saved in file
 }
 
 pub struct WisphaIntermediateEntry {
-    pub entry_file_path: PathBuf,
+    pub entry_file_path: PathBuf, // tells where to find the actual file. The path can be absolute, relative or start with `$ROOT_DIR`
 }
 
 pub enum WisphaFatEntry {
