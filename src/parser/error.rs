@@ -15,8 +15,8 @@ pub enum ParserError {
     EntryFileTypeEmpty(ParserErrorInfo),
     UnrecognizedEntryFileType(ParserErrorInfo, String),
     InvalidPath(ParserErrorInfo, PathBuf),
-    FileCannotRead(ParserErrorInfo, PathBuf),
-    DirectoryNotDetermined(ParserErrorInfo, PathBuf),
+    FileCannotRead(PathBuf),
+    DirectoryNotDetermined(PathBuf),
     Unexpected,
 }
 

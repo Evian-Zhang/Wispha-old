@@ -1,5 +1,5 @@
 use onig::*;
-use regex;
+use regex; // only use `regex::escape`
 use std::fmt::Write as FmtWrite;
 use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
@@ -19,25 +19,19 @@ struct RawWisphaMember {
     body: String,
 }
 
+// `file_path`: absolute root path
 pub fn parse(file_path: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
     let content = fs::read_to_string(&file_path)
-        .or(Err(ParserError::FileCannotRead(
-            ParserErrorInfo {
-                path: file_path.clone(),
-                property: None
-            },
-            file_path.clone(),
-        )))?;
-    let root_dir = file_path.parent().ok_or(ParserError::DirectoryNotDetermined(
-        ParserErrorInfo {
-            path: file_path.clone(),
-            property: None
-        },
-        file_path.clone(),
-    ))?.to_path_buf();
-    env::set_var(wispha::ROOT_DIR_VAR, &root_dir.to_str().ok_or(ParserError::Unexpected)?);
+        .or(Err(ParserError::FileCannotRead(file_path.clone())))?;
+    let root_dir = file_path.parent().ok_or(ParserError::DirectoryNotDetermined(file_path.clone()))?.to_path_buf();
+    env::set_var(wispha::ROOT_DIR_VAR, &root_dir.to_str().unwrap());
     let root = parse_with_depth(&content, 0, &root_dir, &file_path)?;
     Ok(root)
+}
+
+fn line_number_in_content(content: &String, pos: usize) -> usize {
+    let slice = content.get(..pos).unwrap();
+    slice.lines().count()
 }
 
 fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf, file_path: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
@@ -139,19 +133,19 @@ fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf, file_path: &Pat
     Ok(wispha_entry)
 }
 
-fn begin_mark(depth: u32) -> Result<String> {
+fn begin_mark(depth: u32) -> String {
     let mut counter = 0;
     let mut begin_mark = String::new();
     while counter <= depth {
-        write!(&mut begin_mark, "{}", wispha::BEGIN_MARK).or(Err(ParserError::Unexpected))?;
+        write!(&mut begin_mark, "{}", wispha::BEGIN_MARK).unwrap();
         counter += 1;
     }
 
-    Ok(begin_mark)
+    begin_mark
 }
 
-fn prepare_regex_pattern(depth: u32) -> Result<Regex> {
-    let begin_mark = begin_mark(depth)?;
+fn prepare_regex_pattern(depth: u32) -> Regex {
+    let begin_mark = begin_mark(depth);
     let begin_mark_regex = regex::escape(begin_mark.as_str());
 
     let prefix = r#"^[ \f\t\v]*"#;
@@ -165,14 +159,13 @@ fn prepare_regex_pattern(depth: u32) -> Result<Regex> {
 
     let regex_pattern = Regex::with_options(pattern.as_str(),
                                             RegexOptions::REGEX_OPTION_MULTILINE,
-                                            Syntax::default())
-        .or(Err(ParserError::Unexpected))?;
+                                            Syntax::default()).unwrap();
 
-    Ok(regex_pattern)
+    regex_pattern
 }
 
 fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<RawWisphaMember>> {
-    let regex_pattern = prepare_regex_pattern(depth)?;
+    let regex_pattern = prepare_regex_pattern(depth);
 
     let mut raw_wispha_members: Vec<RawWisphaMember> = Vec::new();
 
