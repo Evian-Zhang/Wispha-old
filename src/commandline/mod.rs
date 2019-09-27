@@ -25,6 +25,10 @@ pub enum Subcommand {
 
 #[derive(StructOpt)]
 pub struct Generate {
+    #[structopt(short, long)]
+    pub flat: bool,
+    #[structopt(short, long)]
+    pub recursively: bool,
     pub path: PathBuf,
 }
 

@@ -49,10 +49,6 @@ fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf, file_path: &Pat
     if let Some(intermediate_entry) = intermediate_entry {
         let actual_path = actual_path(&intermediate_entry.entry_file_path, Some(&dir), &file_path, None)?;
         let content = fs::read_to_string(&actual_path).or(Err(ParserError::FileCannotRead(
-            ParserErrorInfo {
-                path: file_path.clone(),
-                property: None
-            },
             actual_path.clone(),
         )))?;
         return parse_with_depth(&content,

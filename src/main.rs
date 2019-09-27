@@ -7,7 +7,7 @@ mod error;
 
 use error::MainError;
 use crate::commandline::{WisphaCommand, Subcommand, Generate, Look};
-use crate::generator::error::GeneratorError;
+use crate::generator::{error::GeneratorError, option::*};
 use crate::parser::error::{ParserError, ParserErrorInfo};
 use crate::manipulator::Manipulator;
 
@@ -103,6 +103,9 @@ fn deal_with_generator_error(generator_error: &GeneratorError) {
         GeneratorError::Unexpected => {
             eprintln!("Unexpected error. Please retry.");
         },
+        GeneratorError::FileCannotWrite(path) => {
+            eprintln!("Cannot write to file {}. Permission denied.", path.to_str().unwrap());
+        }
     }
 }
 
@@ -128,13 +131,11 @@ fn deal_with_parser_error(parser_error: &ParserError) {
             let error_prefix = error_prefix(error_info);
             eprintln!("{}The path {} is invalid.", error_prefix, path.to_str().unwrap());
         },
-        ParserError::FileCannotRead(error_info, path) => {
-            let error_prefix = error_prefix(error_info);
-            eprintln!("{}Cannot read file {}.", error_prefix, path.to_str().unwrap());
+        ParserError::FileCannotRead(path) => {
+            eprintln!("Cannot read file {}.", path.to_str().unwrap());
         },
-        ParserError::DirectoryNotDetermined(error_info, path) => {
-            let error_prefix = error_prefix(error_info);
-            eprintln!("{}Cannot determine the directory of {}.", error_prefix, path.to_str().unwrap());
+        ParserError::DirectoryNotDetermined(path) => {
+            eprintln!("Cannot determine the directory of {}.", path.to_str().unwrap());
         },
         ParserError::Unexpected => {
             eprintln!("Unexpected error. Please retry.")
@@ -146,20 +147,32 @@ fn main() {
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
-            let path = &generate.path;
-            let acutual_path_result = actual_path(&path);
-            if let Ok(actual_path) = acutual_path_result {
-                let result = generator::generate(&actual_path);
-                match result {
-                    Ok(_) => {
-                        println!("Successfully generate!");
-                    },
-                    Err(generator_error) => {
-                        deal_with_generator_error(&generator_error);
-                    },
-                }
+            if generate.flat && generate.recursively {
+                eprintln!("Cannot specify flat and recursively at same time.");
             } else {
-                eprintln!("Path {} does not exist.", path.to_str().unwrap());
+                let layer = if generate.flat {
+                    GenerateLayer::Flat
+                } else {
+                    GenerateLayer::Recursive
+                };
+                let options = GeneratorOptions {
+                    layer
+                };
+                let path = &generate.path;
+                let acutual_path_result = actual_path(&path);
+                if let Ok(actual_path) = acutual_path_result {
+                    let result = generator::generate(&actual_path, options);
+                    match result {
+                        Ok(_) => {
+                            println!("Successfully generate!");
+                        },
+                        Err(generator_error) => {
+                            deal_with_generator_error(&generator_error);
+                        },
+                    }
+                } else {
+                    eprintln!("Path {} does not exist.", path.to_str().unwrap());
+                }
             }
         },
         Subcommand::Look(look) => {

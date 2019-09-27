@@ -8,6 +8,7 @@ pub enum GeneratorError {
     NameNotDetermined(PathBuf),
     NameNotValid(PathBuf),
     IgnoreError(ignore::Error),
+    FileCannotWrite(PathBuf),
     Unexpected,
 }
 

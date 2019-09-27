@@ -6,19 +6,29 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use std::ops::Add;
 use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
-use crate::generator::error::GeneratorError;
 use ignore::{Walk, WalkBuilder};
 
 pub mod error;
+use error::GeneratorError;
 mod converter;
+pub mod option;
+use option::*;
 
 pub type Result<T> = std::result::Result<T, GeneratorError>;
 
 // treat `path` as root. `path` is absolute
-pub fn generate(path: &PathBuf) -> Result<()> {
-    let root = generate_file_at_path(&path, &path, &get_ignored_files_from_root(path)?)?;
-    fs::write(&path.join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR)), &root.to_file_string(0, &path)?)
-        .or(Err(GeneratorError::Unexpected))?;
+pub fn generate(path: &PathBuf, options: GeneratorOptions) -> Result<()> {
+    let root = match options.layer {
+        GenerateLayer::Flat => {
+            generate_file_at_path_flat(&path, &path, &get_ignored_files_from_root(path)?)?
+        },
+        GenerateLayer::Recursive => {
+            generate_file_at_path_recursively(&path, &path, &get_ignored_files_from_root(path)?)?
+        },
+    };
+    let root_path = path.join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
+    fs::write(&root_path, &root.to_file_string(0, &path)?)
+        .or(Err(GeneratorError::FileCannotWrite(root_path.clone())))?;
     Ok(())
 }
 
@@ -56,19 +66,19 @@ fn generate_file_at_path_without_sub_and_sup(path: &PathBuf) -> Result<WisphaEnt
     Ok(wispha_entry)
 }
 
-// `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative
-fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec<PathBuf>) -> Result<WisphaEntry> {
+// `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative. Write all sub_entry to disk
+fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec<PathBuf>) -> Result<WisphaEntry> {
     let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
             if ignored_files.contains(&entry.path()) {
-                let mut sub_entry = generate_file_at_path(&entry.path(), root_dir, ignored_files)?;
+                let mut sub_entry = generate_file_at_path_recursively(&entry.path(), root_dir, ignored_files)?;
                 if (&entry.path()).is_dir() {
                     let absolute_path = sub_entry.properties.absolute_path
                         .join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
-                    fs::write(absolute_path, &sub_entry.to_file_string(0, root_dir)?)
-                        .or(Err(GeneratorError::Unexpected))?;
+                    fs::write(&absolute_path, &sub_entry.to_file_string(0, root_dir)?)
+                        .or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
 
                     let relative_path = PathBuf::from(&sub_entry.properties.name)
                         .join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
@@ -77,12 +87,28 @@ fn generate_file_at_path(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec
                         entry_file_path: relative_path,
                     };
 
-                    wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
+                    wispha_entry.sub_entries.borrow_mut()
                         .push(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(intermediate_entry))));
                 } else {
-                    wispha_entry.sub_entries.try_borrow_mut().or(Err(GeneratorError::Unexpected))?
+                    wispha_entry.sub_entries.borrow_mut()
                         .push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(sub_entry))));
                 }
+            }
+        }
+    }
+    Ok(wispha_entry)
+}
+
+// `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Not write sub_entry to disk
+fn generate_file_at_path_flat(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec<PathBuf>) -> Result<WisphaEntry> {
+    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path)?;
+    if path.is_dir() {
+        for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
+            let entry = entry.or(Err(GeneratorError::Unexpected))?;
+            if ignored_files.contains(&entry.path()) {
+                let mut sub_entry = generate_file_at_path_flat(&entry.path(), root_dir, ignored_files)?;
+                wispha_entry.sub_entries.borrow_mut()
+                    .push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(sub_entry))));
             }
         }
     }
