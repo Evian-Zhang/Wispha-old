@@ -17,6 +17,7 @@ pub enum ParserError {
     InvalidPath(ParserErrorInfo, PathBuf),
     FileCannotRead(PathBuf),
     DirectoryNotDetermined(PathBuf),
+    LackHeader(PathBuf, usize),
     Unexpected,
 }
 

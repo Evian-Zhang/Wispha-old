@@ -19,6 +19,76 @@ struct RawWisphaMember {
     body: String,
 }
 
+struct WisphaRawToken {
+    content: String,
+    line_number: usize,
+    file_path: PathBuf,
+}
+
+enum WisphaToken {
+    Header(WisphaRawToken, u8),
+    Body(WisphaRawToken),
+}
+
+pub struct Parser {
+    tokens: Vec<WisphaToken>,
+    current_header: Option<String>,
+}
+
+impl Parser {
+    pub fn parse(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+        let content = fs::read_to_string(&file_path)
+            .or(Err(ParserError::FileCannotRead(file_path.to_path_buf())))?;
+        self.tokenize(content, file_path);
+        Ok(())
+    }
+
+    fn tokenize(&mut self, mut content: String, file_path: &Path) {
+        content = content.trim().to_string();
+        for (line_index, line_content) in content.lines().enumerate() {
+            self.parse_line(line_content.to_string(), line_index + 1, file_path);
+        }
+    }
+
+    // `line_number` starts at 1
+    fn parse_line(&mut self, mut line_content: String, line_number: usize, file_path: &Path) {
+        let header_pattern = r#"^[ \f\t\v]*(\++)\[(.+?)][ \f\t\v]*$"#;
+        let header_regex = Regex::new(header_pattern).unwrap();
+        let wispha_token = if let Some(capture) = header_regex.captures(&line_content) {
+            WisphaToken::Header(WisphaRawToken {
+                content: capture.at(2).unwrap().to_string(),
+                line_number,
+                file_path: file_path.to_path_buf(),
+            }, (u8)(capture.at(1).unwrap()))
+        } else {
+            WisphaToken::Body(WisphaRawToken {
+                content: line_content.clone(),
+                line_number,
+                file_path: file_path.to_path_buf(),
+            })
+        };
+        self.tokens.push(wispha_token);
+    }
+
+    fn build_wispha_entry(&mut self) -> Result<()> {
+        for wispha_token in &self.tokens {
+            match wispha_token {
+                WisphaToken::Header(raw_token) => {
+                    self.current_header = Some(raw_token.content.clone());
+                },
+                WisphaToken::Body(raw_token) => {
+                    if let Some(header) = self.current_header {
+
+                    } else {
+                        return Err(ParserError::LackHeader(raw_token.file_path.clone(), raw_token.line_number));
+                    }
+                },
+            }
+        }
+        Ok(())
+    }
+}
+
 // `file_path`: absolute root path
 pub fn parse(file_path: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
     let content = fs::read_to_string(&file_path)
