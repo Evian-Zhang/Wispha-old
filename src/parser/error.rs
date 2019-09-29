@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter, Debug, Result};
 use std::path::PathBuf;
 
 use crate::wispha::WisphaEntryType;
+use crate::parser::*;
 
 pub struct ParserErrorInfo {
     pub path: PathBuf,
@@ -18,6 +19,7 @@ pub enum ParserError {
     FileCannotRead(PathBuf),
     DirectoryNotDetermined(PathBuf),
     LackHeader(PathBuf, usize),
+    UnexpectedToken(WisphaToken, Vec<WisphaToken> ,usize),
     Unexpected,
 }
 

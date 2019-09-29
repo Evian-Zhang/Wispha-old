@@ -11,10 +11,11 @@ use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, W
 pub mod error;
 use error::{ParserErrorInfo, ParserError};
 use std::cell::RefCell;
+use std::string::ParseError;
 
 type Result<T> = std::result::Result<T, ParserError>;
 
-struct RawWisphaMember {
+struct WisphaRawEntry {
     header: String,
     body: String,
 }
@@ -25,17 +26,114 @@ struct WisphaRawToken {
     file_path: PathBuf,
 }
 
+impl Clone for WisphaRawToken {
+    fn clone(&self) -> Self {
+        WisphaRawToken {
+            content: self.content.clone(),
+            line_number: self.line_number.clone(),
+            file_path: self.file_path.clone(),
+        }
+    }
+}
+
 enum WisphaToken {
-    Header(WisphaRawToken, u8),
+    Header(WisphaRawToken, usize),
     Body(WisphaRawToken),
+}
+
+impl WisphaToken {
+    fn matches(&self, token: &WisphaToken) -> bool {
+        use WisphaToken::*;
+        match (&self, token) {
+            (Header(self_raw_token, self_depth), Header(raw_token, depth)) => {
+                if depth > &(0 as usize) && self_depth > depth {
+                    return false;
+                }
+                if raw_token.content.len() > 0 && self_raw_token.content != raw_token.content {
+                    return false;
+                }
+                return true;
+            },
+            (Body(self_raw_token), Body(raw_token)) => {
+                if raw_token.content.len() > 0 && self_raw_token.content != raw_token.content {
+                    return false;
+                }
+                return true;
+            },
+            _ => {
+                return false;
+            }
+        }
+    }
+
+    fn raw_token(&self) -> &WisphaRawToken {
+        match &self {
+            WisphaToken::Header(raw_token, _) => {
+                raw_token
+            },
+            WisphaToken::Body(raw_token) => {
+                raw_token
+            },
+        }
+    }
+
+    fn line_number(&self) -> usize {
+        self.raw_token().line_number.clone()
+    }
+
+    fn default_header_token_with_depth(depth: usize) -> WisphaToken {
+        WisphaToken::Header(WisphaRawToken {
+            content: "".to_string(),
+            line_number: 0,
+            file_path: PathBuf::new(),
+        }, depth)
+    }
+
+    fn default_header_token_with_content_and_depth(content: String, depth: usize) -> WisphaToken {
+        WisphaToken::Header(WisphaRawToken {
+            content,
+            line_number: 0,
+            file_path: PathBuf::new(),
+        }, depth)
+    }
+
+    fn default_body_token() -> WisphaToken {
+        WisphaToken::Body(WisphaRawToken {
+            content: "".to_string(),
+            line_number: 0,
+            file_path: PathBuf::new(),
+        })
+    }
+}
+
+impl Clone for WisphaToken {
+    fn clone(&self) -> Self {
+        match &self {
+            WisphaToken::Header(raw_token, depth) => {
+                WisphaToken::Header(raw_token.clone(), depth.clone())
+            },
+            WisphaToken::Body(raw_token) => {
+                WisphaToken::Body(raw_token.clone())
+            },
+        }
+    }
 }
 
 pub struct Parser {
     tokens: Vec<WisphaToken>,
-    current_header: Option<String>,
+    current_token_index: usize,
+    expected_tokens: Option<Vec<WisphaToken>>,
 }
 
 impl Parser {
+    pub fn new() -> Parser {
+        Parser {
+            tokens: vec![],
+            current_token_index: 0,
+            expected_tokens: Some(vec![WisphaToken::default_header_token_with_depth(1)]),
+        }
+    }
+
     pub fn parse(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let content = fs::read_to_string(&file_path)
             .or(Err(ParserError::FileCannotRead(file_path.to_path_buf())))?;
@@ -55,11 +153,14 @@ impl Parser {
         let header_pattern = r#"^[ \f\t\v]*(\++)\[(.+?)][ \f\t\v]*$"#;
         let header_regex = Regex::new(header_pattern).unwrap();
         let wispha_token = if let Some(capture) = header_regex.captures(&line_content) {
+            let content = capture.at(2).unwrap().to_string();
+            let pluses = capture.at(1).unwrap();
+            let depth = pluses.len();
             WisphaToken::Header(WisphaRawToken {
-                content: capture.at(2).unwrap().to_string(),
+                content,
                 line_number,
                 file_path: file_path.to_path_buf(),
-            }, (u8)(capture.at(1).unwrap()))
+            }, depth)
         } else {
             WisphaToken::Body(WisphaRawToken {
                 content: line_content.clone(),
@@ -70,22 +171,42 @@ impl Parser {
         self.tokens.push(wispha_token);
     }
 
-    fn build_wispha_entry(&mut self) -> Result<()> {
-        for wispha_token in &self.tokens {
-            match wispha_token {
-                WisphaToken::Header(raw_token) => {
-                    self.current_header = Some(raw_token.content.clone());
+    fn build_wispha_entry(&mut self, current_depth: usize) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+        while let Some(token) = self.tokens.get(self.current_token_index) {
+            if !self.is_token_expected(token) {
+                return Err(ParseError::UnexpectedToken(token.clone(), self.expected_tokens.clone(), token.line_number()));
+            }
+            match token {
+                WisphaToken::Header(raw_token, depth) => {
+                    let depth = depth.clone();
+                    if depth > current_depth {
+                        let sub_entry = self.build_wispha_entry(depth)?;
+                    }
                 },
                 WisphaToken::Body(raw_token) => {
-                    if let Some(header) = self.current_header {
+                    if let Some(header) = &self.current_header {
 
                     } else {
                         return Err(ParserError::LackHeader(raw_token.file_path.clone(), raw_token.line_number));
                     }
                 },
             }
+            self.current_token_index += 1;
         }
         Ok(())
+    }
+
+    fn is_token_expected(&self, token: &WisphaToken) -> bool {
+        if let Some(expected_tokens) = &self.expected_tokens {
+            for expected_token in expected_tokens {
+                if token.matches(expected_token) {
+                    return true;
+                }
+            }
+            return false;
+        } else {
+            return true;
+        }
     }
 }
 
@@ -230,10 +351,10 @@ fn prepare_regex_pattern(depth: u32) -> Regex {
     regex_pattern
 }
 
-fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<RawWisphaMember>> {
+fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<WisphaRawEntry>> {
     let regex_pattern = prepare_regex_pattern(depth);
 
-    let mut raw_wispha_members: Vec<RawWisphaMember> = Vec::new();
+    let mut raw_wispha_members: Vec<WisphaRawEntry> = Vec::new();
 
     for caps in regex_pattern.captures_iter(content.as_str()) {
         let header = caps.at(1).ok_or(ParserError::Unexpected)?.to_string();
@@ -252,7 +373,7 @@ fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<RawWisphaM
                 ""
             },
         }.to_string();
-        let raw_wispha_member = RawWisphaMember { header, body };
+        let raw_wispha_member = WisphaRawEntry { header, body };
         raw_wispha_members.push(raw_wispha_member);
     }
 
