@@ -19,7 +19,7 @@ pub enum ParserError {
     FileCannotRead(PathBuf),
     DirectoryNotDetermined(PathBuf),
     LackHeader(PathBuf, usize),
-    UnexpectedToken(WisphaToken, Vec<WisphaToken> ,usize),
+    UnexpectedToken(WisphaToken, Option<Vec<(WisphaToken, Vec<WisphaExpectOption>)>>, usize),
     Unexpected,
 }
 
