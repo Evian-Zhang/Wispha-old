@@ -399,6 +399,7 @@ impl Parser {
         let entry_mut_mut = &mut *entry_mut.borrow_mut();
         match entry_mut_mut {
             WisphaFatEntry::Immediate(immediate_entry) => {
+                immediate_entry.sup_entry = RefCell::new(Weak::new());
                 for sub_entry in &mut *immediate_entry.sub_entries.borrow_mut() {
                     self.resolve(&RefCell::new(Rc::clone(sub_entry)));
                     sub_entry.borrow_mut().get_immediate_entry_mut().unwrap().sup_entry = RefCell::new(Rc::downgrade(&entry_mut));
