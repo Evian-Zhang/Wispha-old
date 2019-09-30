@@ -8,7 +8,7 @@ mod error;
 use error::MainError;
 use crate::commandline::{WisphaCommand, Subcommand, Generate, Look};
 use crate::generator::{error::GeneratorError, option::*};
-use crate::parser::error::{ParserError, ParserErrorInfo};
+use crate::parser::{error::{ParserError, ParserErrorInfo}, *};
 use crate::manipulator::Manipulator;
 
 
@@ -110,35 +110,22 @@ fn deal_with_generator_error(generator_error: &GeneratorError) {
 }
 
 fn deal_with_parser_error(parser_error: &ParserError) {
+    use ParserError::*;
     match parser_error {
-        ParserError::AbsolutePathEmpty(error_info) => {
-            let error_prefix = error_prefix(error_info);
-            eprintln!("{}The absolute path property is empty.", error_prefix);
+        UnrecognizedEntryFileType(token) => {
+            eprintln!("In file {}, line {}:\nUnrecognized entry file type {}.", token.raw_token().file_path.to_str().unwrap(), token.raw_token().line_number, token.raw_token().content);
         },
-        ParserError::NameEmpty(error_info) => {
-            let error_prefix = error_prefix(error_info);
-            eprintln!("{}The name property is empty.", error_prefix);
-        },
-        ParserError::EntryFileTypeEmpty(error_info) => {
-            let error_prefix = error_prefix(error_info);
-            eprintln!("{}The entry file type property is empty.", error_prefix);
-        },
-        ParserError::UnrecognizedEntryFileType(error_info, entry_file_type) => {
-            let error_prefix = error_prefix(error_info);
-            eprintln!("{}The entry file type {} is not valid.", error_prefix, entry_file_type);
-        },
-        ParserError::InvalidPath(error_info, path) => {
-            let error_prefix = error_prefix(error_info);
-            eprintln!("{}The path {} is invalid.", error_prefix, path.to_str().unwrap());
-        },
-        ParserError::FileCannotRead(path) => {
+        FileCannotRead(path) => {
             eprintln!("Cannot read file {}.", path.to_str().unwrap());
         },
-        ParserError::DirectoryNotDetermined(path) => {
-            eprintln!("Cannot determine the directory of {}.", path.to_str().unwrap());
+        UnexpectedToken(token, _) => {
+            eprintln!("In file {}, line {}:\nUnexpected token {}", token.raw_token().file_path.to_str().unwrap(), token.raw_token().line_number, token.raw_token().content);
         },
-        ParserError::Unexpected => {
-            eprintln!("Unexpected error. Please retry.")
+        EmptyBody(token) => {
+            eprintln!("In file {}, line {}:\nProperty {} has empty body.", token.raw_token().file_path.to_str().unwrap(), token.raw_token().line_number, token.raw_token().content);
+        },
+        EnvNotFound => {
+            eprintln!("Cannot determine the environment variable.");
         },
     }
 }
@@ -180,7 +167,8 @@ fn main() {
             let acutual_path_result = actual_path(&path);
             if let Ok(actual_path) = acutual_path_result {
                 println!("Working on looking...");
-                let result = parser::parse(&actual_path);
+                let mut parser = Parser::new();
+                let result = parser.parse(&actual_path);
                 match result {
                     Ok(root) => {
                         let manipulator = Manipulator::new(&root, &root);

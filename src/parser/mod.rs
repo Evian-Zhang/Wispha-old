@@ -1,5 +1,4 @@
 use onig::*;
-use regex; // only use `regex::escape`
 use std::fmt::Write as FmtWrite;
 use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
@@ -21,10 +20,10 @@ struct WisphaRawEntry {
     body: String,
 }
 
-struct WisphaRawToken {
-    content: String,
-    line_number: usize,
-    file_path: PathBuf,
+pub struct WisphaRawToken {
+    pub content: String,
+    pub line_number: usize,
+    pub file_path: PathBuf,
 }
 
 impl Clone for WisphaRawToken {
@@ -37,14 +36,14 @@ impl Clone for WisphaRawToken {
     }
 }
 
-#[derive(Clone)]
-enum WisphaExpectOption {
+#[derive(Clone, PartialEq)]
+pub enum WisphaExpectOption {
     IgnoreDepth,
     AllowLowerDepth,
     IgnoreContent,
 }
 
-enum WisphaToken {
+pub enum WisphaToken {
     Header(WisphaRawToken, usize),
     Body(WisphaRawToken),
 }
@@ -79,7 +78,7 @@ impl WisphaToken {
         }
     }
 
-    fn raw_token(&self) -> &WisphaRawToken {
+    pub fn raw_token(&self) -> &WisphaRawToken {
         match &self {
             WisphaToken::Header(raw_token, _) => {
                 raw_token
@@ -92,6 +91,17 @@ impl WisphaToken {
 
     fn line_number(&self) -> usize {
         self.raw_token().line_number.clone()
+    }
+
+    fn depth(&self) -> Option<usize> {
+        match &self {
+            WisphaToken::Header(_, depth) => {
+                Some(depth.clone())
+            },
+            WisphaToken::Body(_) => {
+                None
+            },
+        }
     }
 
     fn default_header_token_with_depth(depth: usize) -> WisphaToken {
@@ -164,6 +174,15 @@ struct WisphaRawProperty {
     body: Vec<Rc<WisphaToken>>,
 }
 
+impl Clone for WisphaRawProperty {
+    fn clone(&self) -> Self {
+        WisphaRawProperty {
+            header: self.header.clone(),
+            body: self.body.clone(),
+        }
+    }
+}
+
 pub struct Parser {
     expected_tokens: Option<Vec<(WisphaToken, Vec<WisphaExpectOption>)>>,
 }
@@ -176,25 +195,32 @@ impl Parser {
     }
 
     pub fn parse(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+        env::set_var(wispha::ROOT_DIR_VAR, file_path.parent().unwrap().to_str().unwrap());
+        self.parse_with_env_set(file_path)
+    }
+
+    fn parse_with_env_set(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let content = fs::read_to_string(&file_path)
             .or(Err(ParserError::FileCannotRead(file_path.to_path_buf())))?;
         let tokens = self.tokenize(content, file_path);
-        Ok(())
+        let mut root = self.build_wispha_entry_with_relative_path(tokens, 1)?;
+        self.resolve(&mut RefCell::new(Rc::clone(&root)))?;
+        Ok(root)
     }
 
-    fn tokenize(&mut self, mut content: String, file_path: &Path) -> Vec<WisphaToken> {
+    fn tokenize(&mut self, mut content: String, file_path: &Path) -> Vec<Rc<WisphaToken>> {
         let mut tokens = Vec::new();
         content = content.trim().to_string();
         for (line_index, line_content) in content.lines().enumerate() {
             let token = self.parse_line(line_content.to_string(), line_index + 1, file_path);
-            tokens.push(token);
+            tokens.push(Rc::new(token));
         }
         tokens
     }
 
     // `line_number` starts at 1
     fn parse_line(&self, mut line_content: String, line_number: usize, file_path: &Path) -> WisphaToken {
-        let header_pattern = r#"^[ \f\t\v]*(\++)\[(.+?)][ \f\t\v]*$"#;
+        let header_pattern = r#"^[ \f\t\v]*(\++)[ \f\t\v]*\[(.+?)][ \f\t\v]*$"#;
         let header_regex = Regex::new(header_pattern).unwrap();
         let wispha_token = if let Some(capture) = header_regex.captures(&line_content) {
             let content = capture.at(2).unwrap().to_string();
@@ -215,92 +241,174 @@ impl Parser {
         wispha_token
     }
 
+    fn build_wispha_entry_with_relative_path(&mut self, tokens: Vec<Rc<WisphaToken>>, depth: usize) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+        let properties = self.build_wispha_properties(tokens, depth)?;
+        self.build_wispha_entry_with_relative_path_from_properties(properties)
+    }
+
     fn build_wispha_properties(&mut self, tokens: Vec<Rc<WisphaToken>>, depth: usize) -> Result<Vec<WisphaRawProperty>> {
         self.expected_tokens = Some(vec![(WisphaToken::default_header_token_with_depth(depth), vec![WisphaExpectOption::IgnoreContent])]);
         let mut properties = Vec::new();
         let mut token_index = 0;
         while let Some(token) = tokens.get(token_index) {
             if !self.is_token_expected(&token) {
-                return Err(ParserError::UnexpectedToken(token.borrow().clone(), self.expected_tokens.clone(), token.line_number()));
+                return Err(ParserError::UnexpectedToken(Rc::clone(token), self.expected_tokens.clone()));
             }
             let mut property = WisphaRawProperty {
                 header: Rc::clone(token),
                 body: vec![]
             };
             token_index += 1;
-            loop {
-                if let Some(next_token) = tokens.get(token_index) {
-                    match next_token.borrow() {
-                        WisphaToken::Header(_, token_depth) => {
-                            if token_depth.clone() <= depth {
-                                break;
-                            }
-                        },
-                        WisphaToken::Body(_) => { },
-                    }
-                    property.body.push(Rc::clone(next_token));
-                    token_index += 1;
-                } else {
-                    break;
+            while let Some(next_token) = tokens.get(token_index) {
+                match next_token.borrow() {
+                    WisphaToken::Header(_, token_depth) => {
+                        if token_depth.clone() <= depth {
+                            break;
+                        }
+                    },
+                    WisphaToken::Body(_) => { },
                 }
+                property.body.push(Rc::clone(next_token));
+                token_index += 1;
             }
+            properties.push(property);
         }
         Ok(properties)
     }
 
-    fn build_wispha_entry_with_relative_path(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
-        let mut file_path_property_body = None;
-        for property in properties {
-            if property.header.borrow().raw_token().content == wispha::ENTRY_FILE_PATH_HEADER.to_string() {
-                file_path_property_body = Some(property.body);
+    fn build_wispha_entry_with_relative_path_from_properties(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+        let mut file_path_property = None;
+        for property in &properties {
+            if property.header.raw_token().content == wispha::ENTRY_FILE_PATH_HEADER.to_string() {
+                file_path_property = Some(property.clone());
             }
         }
-        if let Some(file_path_property_body) = file_path_property_body {
-            return self.build_wispha_intermediate_entry_with_relative_path(file_path_property_body);
+        if let Some(file_path_property) = file_path_property {
+            return self.build_wispha_intermediate_entry_with_relative_path(file_path_property);
         } else {
-            return self.build_wispha_immediate_entry_with_relative_path(properties)
+            return self.build_wispha_immediate_entry_with_relative_path(properties);
         }
-        Ok(())
     }
 
-    fn build_wispha_intermediate_entry_with_relative_path(&mut self, file_path_body: Vec<Rc<WisphaToken>>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
-        let mut intermediate_entry = WisphaIntermediateEntry {
-            entry_file_path: PathBuf::new(),
-        };
-        self.expected_tokens = vec![(WisphaToken::empty_body_token(), vec![])];
+    fn get_content_token_from_body(&mut self, body: Vec<Rc<WisphaToken>>) -> Result<Option<Rc<WisphaToken>>> {
+        let mut content_token = None;
+        self.expected_tokens = Some(vec![(WisphaToken::empty_body_token(), vec![])]);
         let mut token_index = 0;
-        while let Some(token) = file_path_body.get(token_index) {
+        while let Some(token) = body.get(token_index) {
             if !self.is_token_expected(token.borrow()) {
                 break;
             }
             token_index += 1;
         }
-        if let Some(token) = file_path_body.get(token_index) {
+        if let Some(token) = body.get(token_index) {
             if let WisphaToken::Body(raw_token) = token.borrow() {
-                intermediate_entry.entry_file_path = PathBuf::from(raw_token.content.clone());
+                content_token = Some(Rc::clone(token));
                 token_index += 1;
             }
         }
-        while let Some(token) = file_path_body.get(token_index) {
+        while let Some(token) = body.get(token_index) {
             if !self.is_token_expected(token.borrow()) {
-                return Err(ParserError::UnexpectedToken(token.borrow().clone(), self.expected_tokens.clone(), token.line_number()));
+                return Err(ParserError::UnexpectedToken(Rc::clone(token), self.expected_tokens.clone()));
             }
             token_index += 1;
         }
-        Ok(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(intermediate_entry))))
+        Ok(content_token)
+    }
+
+    fn get_multiline_content_tokens_from_body(&mut self, body: Vec<Rc<WisphaToken>>) -> Result<Vec<Rc<WisphaToken>>> {
+        let mut content_tokens = vec![];
+        self.expected_tokens = Some(vec![(WisphaToken::empty_body_token(), vec![WisphaExpectOption::IgnoreContent])]);
+        let mut token_index = 0;
+        while let Some(token) = body.get(token_index) {
+            if self.is_token_expected(token.borrow()) {
+                content_tokens.push(Rc::clone(token));
+            } else {
+                return Err(ParserError::UnexpectedToken(Rc::clone(token), self.expected_tokens.clone()));
+            }
+            token_index += 1;
+        }
+        Ok(content_tokens)
+    }
+
+    fn build_wispha_intermediate_entry_with_relative_path(&mut self, file_path_property: WisphaRawProperty) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+        if let Some(content_token) = self.get_content_token_from_body(file_path_property.body)? {
+            let raw = content_token.raw_token().content.clone();
+            let current_dir = content_token.raw_token().file_path.clone().parent().unwrap().to_path_buf();
+            Ok(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(WisphaIntermediateEntry{
+                entry_file_path: self.actual_path(&raw, &current_dir)?
+            }))))
+        } else {
+            Err(ParserError::EmptyBody(Rc::clone(file_path_property.header.borrow())))
+        }
     }
 
     fn build_wispha_immediate_entry_with_relative_path(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let mut immediate_entry = WisphaEntry::default();
-        self.expected_tokens = vec![(WisphaToken::empty_body_token(), vec![])];
-        let mut token_index = 0;
-        while let Some(token) = properties.get(token_index) {
-            if !self.is_token_expected(token.borrow()) {
-                break;
+        for property in properties {
+            match property.header.raw_token().content.as_str() {
+                wispha::ABSOLUTE_PATH_HEADER => {;
+                    if let Some(content_token) = self.get_content_token_from_body(property.body)? {
+                        let raw = content_token.raw_token().content.trim().to_string();
+                        let current_dir = content_token.raw_token().file_path.clone().parent().unwrap().to_path_buf();
+                        immediate_entry.properties.absolute_path = self.actual_path(&raw, &current_dir)?
+                    } else {
+                        return Err(ParserError::EmptyBody(Rc::clone(&property.header)));
+                    }
+                },
+                wispha::NAME_HEADER => {
+                    if let Some(content_token) = self.get_content_token_from_body(property.body)? {
+                        immediate_entry.properties.name = content_token.raw_token().content.trim().to_string();
+                    } else {
+                        return Err(ParserError::EmptyBody(Rc::clone(&property.header)));
+                    }
+                },
+                wispha::ENTRY_TYPE_HEADER => {
+                    if let Some(content_token) = self.get_content_token_from_body(property.body)? {
+                        immediate_entry.properties.entry_type = WisphaEntryType::from(content_token.raw_token().content.trim().to_string())
+                            .ok_or(ParserError::UnrecognizedEntryFileType(Rc::clone(&content_token)))?;
+                    } else {
+                        return Err(ParserError::EmptyBody(Rc::clone(&property.header)));
+                    }
+                },
+                wispha::DESCRIPTION_HEADER => {
+                    let content_tokens = self.get_multiline_content_tokens_from_body(property.body)?;
+                    let mut content = String::new();
+                    for token in &content_tokens {
+                        content.push_str(&token.raw_token().content);
+                        content.push_str("\n");
+                    }
+                    if content_tokens.len() > 0 {
+                        content.pop();
+                    }
+                    immediate_entry.properties.description = content;
+                },
+                wispha::SUB_ENTRIES_HEADER => {
+                    let sub_entry = self.build_wispha_entry_with_relative_path(property.body, property.header.depth().unwrap() + 1)?;
+                    immediate_entry.sub_entries.borrow_mut().push(Rc::clone(&sub_entry));
+                },
+                _ => {
+                    continue;
+                }
             }
-            token_index += 1;
         }
         Ok(Rc::new(RefCell::new(WisphaFatEntry::Immediate(immediate_entry))))
+    }
+
+    fn resolve(&mut self, entry: &RefCell<Rc<RefCell<WisphaFatEntry>>>) -> Result<()> {
+        let entry_mut = &mut *entry.borrow_mut();
+        let entry_mut = &mut *entry_mut.borrow_mut();
+        match entry_mut {
+            WisphaFatEntry::Immediate(immediate_entry) => {
+                for sub_entry in &mut *immediate_entry.sub_entries.borrow_mut() {
+                    self.resolve(&RefCell::new(Rc::clone(sub_entry)));
+                }
+            }
+
+            WisphaFatEntry::Intermediate(intermediate_entry) => {
+                *entry.borrow_mut() = self.parse_with_env_set(&intermediate_entry.entry_file_path.clone())?;
+            }
+        }
+        Ok(())
     }
 
     fn is_token_expected(&self, token: &WisphaToken) -> bool {
@@ -315,204 +423,20 @@ impl Parser {
             return true;
         }
     }
-}
 
-// `file_path`: absolute root path
-pub fn parse(file_path: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
-    let content = fs::read_to_string(&file_path)
-        .or(Err(ParserError::FileCannotRead(file_path.clone())))?;
-    let root_dir = file_path.parent().ok_or(ParserError::DirectoryNotDetermined(file_path.clone()))?.to_path_buf();
-    env::set_var(wispha::ROOT_DIR_VAR, &root_dir.to_str().unwrap());
-    let root = parse_with_depth(&content, 0, &root_dir, &file_path)?;
-    Ok(root)
-}
-
-fn line_number_in_content(content: &String, pos: usize) -> usize {
-    let slice = content.get(..pos).unwrap();
-    slice.lines().count()
-}
-
-fn parse_with_depth(content: &String, depth: u32, dir: &PathBuf, file_path: &PathBuf) -> Result<Rc<RefCell<WisphaFatEntry>>> {
-    let raw_wispha_members = get_raw_wispha_members(&content, depth)?;
-
-    let mut intermediate_entry: Option<WisphaIntermediateEntry> = None;
-    for raw_wispha_member in &raw_wispha_members {
-        if raw_wispha_member.header.as_str() == wispha::ENTRY_FILE_PATH_HEADER {
-            intermediate_entry = Some(WisphaIntermediateEntry {
-                entry_file_path: PathBuf::from(raw_wispha_member.body.clone()),
-            });
+    fn actual_path(&self, raw: &String, current_dir: &PathBuf) -> Result<PathBuf> {
+        let raw = PathBuf::from(raw);
+        if raw.is_absolute() {
+            return Ok(raw);
         }
-    }
 
-    if let Some(intermediate_entry) = intermediate_entry {
-        let actual_path = actual_path(&intermediate_entry.entry_file_path, Some(&dir), &file_path, None)?;
-        let content = fs::read_to_string(&actual_path).or(Err(ParserError::FileCannotRead(
-            actual_path.clone(),
-        )))?;
-        return parse_with_depth(&content,
-                                0,
-                                &actual_path.parent().ok_or(ParserError::Unexpected)?
-                                    .to_path_buf(),
-                                &actual_path);
-    }
-
-    let wispha_entry = Rc::new(RefCell::new(WisphaFatEntry::Immediate(WisphaEntry::default())));
-    wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-        .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-        .properties.file_path = file_path.clone();
-    for raw_wispha_member in &raw_wispha_members {
-        let body = raw_wispha_member.body.clone();
-        match raw_wispha_member.header.as_str() {
-            wispha::ABSOLUTE_PATH_HEADER => {
-                if body.is_empty() {
-                    return Err(ParserError::AbsolutePathEmpty(
-                        ParserErrorInfo {
-                            path: file_path.clone(),
-                            property: Some(wispha::ABSOLUTE_PATH_HEADER.to_string())
-                        }
-                    ));
-                }
-                wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .properties.absolute_path = actual_path(&PathBuf::from(&body),
-                                                            Some(dir),
-                                                            file_path,
-                                                            Some(wispha::ABSOLUTE_PATH_HEADER.to_string()))?;
-            },
-            wispha::NAME_HEADER => {
-                if body.is_empty() {
-                    return Err(ParserError::NameEmpty(
-                        ParserErrorInfo {
-                            path: file_path.clone(),
-                            property: Some(wispha::NAME_HEADER.to_string())
-                        }
-                    ));
-                }
-                wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .properties.name = body
-            },
-            wispha::ENTRY_TYPE_HEADER => {
-                wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .properties.entry_type = WisphaEntryType::from(body.clone())
-                    .ok_or(ParserError::UnrecognizedEntryFileType(
-                        ParserErrorInfo {
-                            path: file_path.clone(),
-                            property: Some(wispha::ENTRY_TYPE_HEADER.to_string())
-                        },
-                        body.clone(),
-                    ))?;
-            },
-            wispha::DESCRIPTION_HEADER => {
-                wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .properties.description = body
-            },
-            wispha::SUB_ENTRIES_HEADER => {
-                let mut sub_entry = RefCell::new(parse_with_depth(&body, depth + 1, &dir, &file_path)?);
-                sub_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .sup_entry = RefCell::new(Rc::downgrade(&wispha_entry));
-                wispha_entry.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .get_immediate_entry_mut().ok_or(ParserError::Unexpected)?
-                    .sub_entries.try_borrow_mut().or(Err(ParserError::Unexpected))?
-                    .push(sub_entry.into_inner());
-            },
-            _ => continue,
+        if raw.starts_with(wispha::ROOT_DIR) {
+            let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).or(Err(ParserError::EnvNotFound))?);
+            let relative_path = raw.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
+            return Ok(root_dir.join(relative_path));
         }
+
+        // `raw` is not absolute and not starts with `ROOT_DIR`
+        Ok(current_dir.join(&raw))
     }
-
-    Ok(wispha_entry)
-}
-
-fn begin_mark(depth: u32) -> String {
-    let mut counter = 0;
-    let mut begin_mark = String::new();
-    while counter <= depth {
-        write!(&mut begin_mark, "{}", wispha::BEGIN_MARK).unwrap();
-        counter += 1;
-    }
-
-    begin_mark
-}
-
-fn prepare_regex_pattern(depth: u32) -> Regex {
-    let begin_mark = begin_mark(depth);
-    let begin_mark_regex = regex::escape(begin_mark.as_str());
-
-    let prefix = r#"^[ \f\t\v]*"#;
-    let postfix = r#"[ \f\t\v]*\[([^\r\n]*)]$"#;
-
-    let header = format!("{}{}{}", prefix, begin_mark_regex, postfix);
-
-    let body = r#"([\s\S]*?)"#;
-
-    let pattern = format!("{}{}(?={}|\\z)", header, body, header);
-
-    let regex_pattern = Regex::with_options(pattern.as_str(),
-                                            RegexOptions::REGEX_OPTION_MULTILINE,
-                                            Syntax::default()).unwrap();
-
-    regex_pattern
-}
-
-fn get_raw_wispha_members(content: &String, depth: u32) -> Result<Vec<WisphaRawEntry>> {
-    let regex_pattern = prepare_regex_pattern(depth);
-
-    let mut raw_wispha_members: Vec<WisphaRawEntry> = Vec::new();
-
-    for caps in regex_pattern.captures_iter(content.as_str()) {
-        let header = caps.at(1).ok_or(ParserError::Unexpected)?.to_string();
-        let raw_body = caps.at(2).ok_or(ParserError::Unexpected)?.to_string();
-
-        let body_pattern = r#"\A\s*(\S[\s\S]*\S)\s*\z"#;
-        let body_regex_pattern = Regex::with_options(body_pattern,
-                                                RegexOptions::REGEX_OPTION_MULTILINE,
-                                                Syntax::default())
-            .or(Err(ParserError::Unexpected))?;
-        let body = match body_regex_pattern.captures(raw_body.as_str()) {
-            Some(cap) => {
-                cap.at(1).unwrap_or("")
-            },
-            None => {
-                ""
-            },
-        }.to_string();
-        let raw_wispha_member = WisphaRawEntry { header, body };
-        raw_wispha_members.push(raw_wispha_member);
-    }
-
-    Ok(raw_wispha_members)
-}
-
-fn actual_path(raw: &PathBuf, current_dir: Option<&PathBuf>, file_path: &PathBuf, property: Option<String>) -> Result<PathBuf> {
-    if raw.is_absolute() {
-        return Ok(raw.clone());
-    }
-
-    if raw.starts_with(wispha::ROOT_DIR) {
-        let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).or(Err(ParserError::InvalidPath(
-            ParserErrorInfo {
-                path: file_path.clone(),
-                property,
-            },
-            raw.clone(),
-        )))?);
-        let relative_path = raw.strip_prefix(wispha::ROOT_DIR).or(Err(ParserError::Unexpected))?.to_path_buf();
-        return Ok(root_dir.join(relative_path));
-    }
-
-    if let Some(current_dir) = current_dir {
-        return Ok(current_dir.join(&raw));
-    }
-
-    Err(ParserError::InvalidPath(
-        ParserErrorInfo {
-            path: file_path.clone(),
-            property,
-        },
-        raw.clone(),
-    ))
 }

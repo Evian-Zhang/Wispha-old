@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Debug, Result};
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::wispha::WisphaEntryType;
 use crate::parser::*;
@@ -11,16 +12,11 @@ pub struct ParserErrorInfo {
 }
 
 pub enum ParserError {
-    AbsolutePathEmpty(ParserErrorInfo),
-    NameEmpty(ParserErrorInfo),
-    EntryFileTypeEmpty(ParserErrorInfo),
-    UnrecognizedEntryFileType(ParserErrorInfo, String),
-    InvalidPath(ParserErrorInfo, PathBuf),
+    UnrecognizedEntryFileType(Rc<WisphaToken>),
     FileCannotRead(PathBuf),
-    DirectoryNotDetermined(PathBuf),
-    LackHeader(PathBuf, usize),
-    UnexpectedToken(WisphaToken, Option<Vec<(WisphaToken, Vec<WisphaExpectOption>)>>, usize),
-    Unexpected,
+    UnexpectedToken(Rc<WisphaToken>, Option<Vec<(WisphaToken, Vec<WisphaExpectOption>)>>),
+    EmptyBody(Rc<WisphaToken>),
+    EnvNotFound,
 }
 
 impl Error for ParserError {
