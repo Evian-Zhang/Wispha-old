@@ -135,6 +135,17 @@ impl WisphaToken {
             file_path: PathBuf::new(),
         })
     }
+
+    fn enum_type(&self) -> String {
+        match &self {
+            WisphaToken::Header(_, _) => {
+                String::from("Header")
+            },
+            WisphaToken::Body(_) => {
+                String::from("Body")
+            },
+        }
+    }
 }
 
 impl Clone for WisphaToken {
@@ -200,7 +211,7 @@ impl Parser {
     }
 
     fn parse_with_env_set(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
-        let content = fs::read_to_string(&file_path)
+        let mut content = fs::read_to_string(&file_path)
             .or(Err(ParserError::FileCannotRead(file_path.to_path_buf())))?;
         let tokens = self.tokenize(content, file_path);
         let mut root = self.build_wispha_entry_with_relative_path(tokens, 1)?;
@@ -211,6 +222,9 @@ impl Parser {
     fn tokenize(&mut self, mut content: String, file_path: &Path) -> Vec<Rc<WisphaToken>> {
         let mut tokens = Vec::new();
         content = content.trim().to_string();
+        if content.len() == 0 {
+            content = String::from("\n");
+        }
         for (line_index, line_content) in content.lines().enumerate() {
             let token = self.parse_line(line_content.to_string(), line_index + 1, file_path);
             tokens.push(Rc::new(token));
