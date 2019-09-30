@@ -14,6 +14,8 @@ use crate::manipulator::Manipulator;
 
 use structopt::StructOpt;
 
+use console::style;
+
 use std::env;
 
 use std::path::{PathBuf, Path};
@@ -111,6 +113,7 @@ fn deal_with_generator_error(generator_error: &GeneratorError) {
 
 fn deal_with_parser_error(parser_error: &ParserError) {
     use ParserError::*;
+    eprintln!("{}", style("error").red());
     match parser_error {
         UnrecognizedEntryFileType(token) => {
             eprintln!("In file {}, line {}:\nUnrecognized entry file type {}.", token.raw_token().file_path.to_str().unwrap(), token.raw_token().line_number, token.raw_token().content);

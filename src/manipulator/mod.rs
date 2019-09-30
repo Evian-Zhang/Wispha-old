@@ -9,7 +9,6 @@ use crate::wispha::{self, WisphaEntryType, WisphaEntry, WisphaFatEntry, WisphaIn
 
 pub mod error;
 use error::ManipulatorError;
-use std::borrow::Borrow;
 
 type Result<T> = std::result::Result<T, ManipulatorError>;
 

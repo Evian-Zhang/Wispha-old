@@ -9,6 +9,8 @@ use crate::commandline::input_parser::InputParser;
 mod error;
 mod input_parser;
 
+use console::style;
+//use dialoguer::theme::ColorfulTheme;
 
 #[derive(StructOpt)]
 pub struct WisphaCommand {
@@ -45,7 +47,8 @@ pub fn continue_program(mut manipulator: Manipulator) {
     let stdin = io::stdin();
     let mut bstdin = BufReader::new(stdin.take(MAX_INPUT_LENGTH));
     loop {
-        print!("wispha@{} >", manipulator.current_path().to_str().unwrap());
+        let prompt = format!("wispha@{} >", manipulator.current_path().to_str().unwrap());
+        print!("{}", style(prompt).cyan());
         io::stdout().flush().unwrap();
         input.clear();
         bstdin.read_line(&mut input).unwrap();

@@ -260,7 +260,7 @@ impl Parser {
             };
             token_index += 1;
             while let Some(next_token) = tokens.get(token_index) {
-                match next_token.borrow() {
+                match (*next_token).borrow() {
                     WisphaToken::Header(_, token_depth) => {
                         if token_depth.clone() <= depth {
                             break;
