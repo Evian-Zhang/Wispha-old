@@ -284,9 +284,9 @@ impl Parser {
             }
         }
         if let Some(file_path_property) = file_path_property {
-            return self.build_wispha_intermediate_entry_with_relative_path(file_path_property);
+            return self.build_wispha_intermediate_entry(file_path_property);
         } else {
-            return self.build_wispha_immediate_entry_with_relative_path(properties);
+            return self.build_wispha_immediate_entry(properties);
         }
     }
 
@@ -330,7 +330,7 @@ impl Parser {
         Ok(content_tokens)
     }
 
-    fn build_wispha_intermediate_entry_with_relative_path(&mut self, file_path_property: WisphaRawProperty) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    fn build_wispha_intermediate_entry(&mut self, file_path_property: WisphaRawProperty) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         if let Some(content_token) = self.get_content_token_from_body(file_path_property.body)? {
             let raw = content_token.raw_token().content.clone();
             let current_dir = content_token.raw_token().file_path.clone().parent().unwrap().to_path_buf();
@@ -342,7 +342,7 @@ impl Parser {
         }
     }
 
-    fn build_wispha_immediate_entry_with_relative_path(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    fn build_wispha_immediate_entry(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let mut immediate_entry = WisphaEntry::default();
         for property in properties {
             match property.header.raw_token().content.as_str() {
@@ -396,11 +396,12 @@ impl Parser {
 
     fn resolve(&mut self, entry: &RefCell<Rc<RefCell<WisphaFatEntry>>>) -> Result<()> {
         let entry_mut = &mut *entry.borrow_mut();
-        let entry_mut = &mut *entry_mut.borrow_mut();
-        match entry_mut {
+        let entry_mut_mut = &mut *entry_mut.borrow_mut();
+        match entry_mut_mut {
             WisphaFatEntry::Immediate(immediate_entry) => {
                 for sub_entry in &mut *immediate_entry.sub_entries.borrow_mut() {
                     self.resolve(&RefCell::new(Rc::clone(sub_entry)));
+                    sub_entry.borrow_mut().get_immediate_entry_mut().unwrap().sup_entry = RefCell::new(Rc::downgrade(&entry_mut));
                 }
             }
 
