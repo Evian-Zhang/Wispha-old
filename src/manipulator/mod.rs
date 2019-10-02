@@ -2,7 +2,7 @@ use std::cell::{RefCell, Ref};
 use std::collections::HashMap;
 use std::rc::{Weak, Rc};
 use std::pin::Pin;
-use std::path::{PathBuf, Component};
+use std::path::{PathBuf, Component, Path};
 use std::env;
 
 use crate::wispha::{self, WisphaEntryType, WisphaEntry, WisphaFatEntry, WisphaIntermediateEntry, WisphaEntryProperties};
@@ -46,7 +46,13 @@ impl Manipulator {
             return Err(ManipulatorError::AbsolutePathNotSupported);
         }
 
-        self.current_entry = find_entry(Rc::clone(&self.current_entry), path.clone(), PathBuf::new())?;
+        self.current_entry = if path.starts_with(wispha::ROOT_DIR) {
+            let remain_path = path.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
+            let used_path = PathBuf::from(wispha::ROOT_DIR);
+            find_entry(Rc::clone(&self.root), remain_path, used_path)?
+        } else {
+            find_entry(Rc::clone(&self.current_entry), path.clone(), PathBuf::new())?
+        };
         Ok(())
     }
 
@@ -100,7 +106,13 @@ impl Manipulator {
     }
 
     pub fn list_of_path(&self, path: &PathBuf) -> Result<String> {
-        let entry = find_entry(Rc::clone(&self.current_entry), path.to_path_buf(), PathBuf::new())?;
+        let entry = if path.starts_with(wispha::ROOT_DIR) {
+            let remain_path = path.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
+            let used_path = PathBuf::from(wispha::ROOT_DIR);
+            find_entry(Rc::clone(&self.root), remain_path, used_path)?
+        } else {
+            find_entry(Rc::clone(&self.current_entry), path.clone(), PathBuf::new())?
+        };
         let mut names: Vec<String> = Vec::new();
         for sub_entry in &*(*entry).borrow().get_immediate_entry().unwrap().sub_entries.borrow() {
             let sub_entry = Rc::clone(sub_entry);
