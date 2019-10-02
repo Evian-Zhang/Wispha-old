@@ -359,7 +359,7 @@ impl Parser {
     fn build_wispha_immediate_entry(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let mut immediate_entry = WisphaEntry::default();
         for property in properties {
-            immediate_entry.properties.file_path = property.header.raw_token().file_path;
+            immediate_entry.properties.file_path = property.header.raw_token().file_path.clone();
             match property.header.raw_token().content.as_str() {
                 wispha::ABSOLUTE_PATH_HEADER => {;
                     if let Some(content_token) = self.get_content_token_from_body(property.body)? {

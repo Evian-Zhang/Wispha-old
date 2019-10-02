@@ -42,6 +42,28 @@ pub struct Look {
 
 const MAX_INPUT_LENGTH: u64 = 256;
 
+fn handle_manipulator_error(error: ManipulatorError) {
+    match error {
+        ManipulatorError::PathNotEntry(path) => {
+            eprintln!("Cannot find entry in {}", path.to_str().unwrap());
+        },
+        ManipulatorError::PathNotExist => {
+            eprintln!("Path not exist!");
+        },
+        ManipulatorError::AbsolutePathNotSupported => {
+            eprintln!("Don't support absolute path.");
+        },
+        ManipulatorError::BeyondDomain => {
+            eprintln!("Path is beyond wispha domain.");
+        },
+        ManipulatorError::EntryNotFound(path) => {
+            eprintln!("Cannot find entry in {}", path.to_str().unwrap());
+        },
+        ManipulatorError::Unexpected => {
+            eprintln!("Unexpected error.");},
+    }
+}
+
 pub fn continue_program(mut manipulator: Manipulator) {
     let mut input = String::new();
     let stdin = io::stdin();
@@ -62,19 +84,13 @@ pub fn continue_program(mut manipulator: Manipulator) {
                 match look_command.subcommand {
                     LookSubcommand::Cd(cd) => {
                         if let Err(error) = manipulator.set_current_entry_to_path(&cd.path) {
-                            match error {
-                                ManipulatorError::PathNotEntry(path) => {
-                                    eprintln!("There is no recording of path {}.", path.to_str().unwrap());
-                                },
+                            handle_manipulator_error(error);
+                        }
+                    },
 
-                                ManipulatorError::PathNotExist => {
-                                    eprintln!("Path not exist.");
-                                },
-
-                                _ => {
-
-                                }
-                            }
+                    LookSubcommand::Lcd(lcd) => {
+                        if let Err(error) = manipulator.set_current_entry_to_local_path(&lcd.path) {
+                            handle_manipulator_error(error);
                         }
                     },
 
@@ -89,7 +105,33 @@ pub fn continue_program(mut manipulator: Manipulator) {
                                     },
 
                                     Err(err) => {
-                                        println!("Error!");
+                                        handle_manipulator_error(err);
+                                    }
+                                }
+                            }
+
+                            None => {
+                                let list = manipulator.current_list();
+
+                                if list.len() > 0 {
+                                    println!("{}", list);
+                                }
+                            }
+                        }
+                    }
+
+                    LookSubcommand::Lls(lls) => {
+                        match lls.path {
+                            Some(path) => {
+                                match manipulator.list_of_local_path(&path) {
+                                    Ok(list) => {
+                                        if list.len() > 0 {
+                                            println!("{}", list);
+                                        }
+                                    },
+
+                                    Err(err) => {
+                                        handle_manipulator_error(err);
                                     }
                                 }
                             },
@@ -101,7 +143,7 @@ pub fn continue_program(mut manipulator: Manipulator) {
                                 }
                             }
                         }
-                    }
+                    },
 
                     LookSubcommand::Quit => {
                         return;
@@ -126,6 +168,8 @@ pub struct LookCommand {
 pub enum LookSubcommand {
     Cd(Cd),
     Ls(Ls),
+    Lcd(LCd),
+    Lls(LLs),
     Quit,
 }
 
@@ -136,5 +180,15 @@ pub struct Cd {
 
 #[derive(StructOpt)]
 pub struct Ls {
+    pub path: Option<PathBuf>,
+}
+
+#[derive(StructOpt)]
+pub struct LCd {
+    pub path: PathBuf,
+}
+
+#[derive(StructOpt)]
+pub struct LLs {
     pub path: Option<PathBuf>,
 }

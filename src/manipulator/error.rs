@@ -5,6 +5,9 @@ use std::path::PathBuf;
 pub enum ManipulatorError {
     PathNotEntry(PathBuf),
     PathNotExist,
+    AbsolutePathNotSupported,
+    BeyondDomain,
+    EntryNotFound(PathBuf),
     Unexpected,
 }
 
