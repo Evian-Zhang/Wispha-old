@@ -83,58 +83,47 @@ pub fn continue_program(mut manipulator: Manipulator) {
             Ok(look_command) => {
                 match look_command.subcommand {
                     LookSubcommand::Cd(cd) => {
-                        if let Err(error) = manipulator.set_current_entry_to_path(&cd.path) {
-                            handle_manipulator_error(error);
-                        }
-                    },
-
-                    LookSubcommand::Lcd(lcd) => {
-                        if let Err(error) = manipulator.set_current_entry_to_local_path(&lcd.path) {
-                            handle_manipulator_error(error);
+                        if cd.local {
+                            if let Err(error) = manipulator.set_current_entry_to_local_path(&cd.path) {
+                                handle_manipulator_error(error);
+                            }
+                        } else {
+                            if let Err(error) = manipulator.set_current_entry_to_path(&cd.path) {
+                                handle_manipulator_error(error);
+                            }
                         }
                     },
 
                     LookSubcommand::Ls(ls) => {
                         match ls.path {
                             Some(path) => {
-                                match manipulator.list_of_path(&path) {
-                                    Ok(list) => {
-                                        if list.len() > 0 {
-                                            println!("{}", list);
-                                        }
-                                    },
+                                if ls.local {
+                                    match manipulator.list_of_local_path(&path) {
+                                        Ok(list) => {
+                                            if list.len() > 0 {
+                                                println!("{}", list);
+                                            }
+                                        },
 
-                                    Err(err) => {
-                                        handle_manipulator_error(err);
+                                        Err(err) => {
+                                            handle_manipulator_error(err);
+                                        }
+                                    }
+                                } else {
+                                    match manipulator.list_of_path(&path) {
+                                        Ok(list) => {
+                                            if list.len() > 0 {
+                                                println!("{}", list);
+                                            }
+                                        },
+
+                                        Err(err) => {
+                                            handle_manipulator_error(err);
+                                        }
                                     }
                                 }
                             }
 
-                            None => {
-                                let list = manipulator.current_list();
-
-                                if list.len() > 0 {
-                                    println!("{}", list);
-                                }
-                            }
-                        }
-                    }
-
-                    LookSubcommand::Lls(lls) => {
-                        match lls.path {
-                            Some(path) => {
-                                match manipulator.list_of_local_path(&path) {
-                                    Ok(list) => {
-                                        if list.len() > 0 {
-                                            println!("{}", list);
-                                        }
-                                    },
-
-                                    Err(err) => {
-                                        handle_manipulator_error(err);
-                                    }
-                                }
-                            },
                             None => {
                                 let list = manipulator.current_list();
 
@@ -168,27 +157,17 @@ pub struct LookCommand {
 pub enum LookSubcommand {
     Cd(Cd),
     Ls(Ls),
-    Lcd(LCd),
-    Lls(LLs),
     Quit,
 }
 
 #[derive(StructOpt)]
 pub struct Cd {
+    pub local: bool,
     pub path: PathBuf,
 }
 
 #[derive(StructOpt)]
 pub struct Ls {
-    pub path: Option<PathBuf>,
-}
-
-#[derive(StructOpt)]
-pub struct LCd {
-    pub path: PathBuf,
-}
-
-#[derive(StructOpt)]
-pub struct LLs {
+    pub local: bool,
     pub path: Option<PathBuf>,
 }
