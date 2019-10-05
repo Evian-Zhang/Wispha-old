@@ -169,8 +169,8 @@ fn main() {
         },
         Subcommand::Look(look) => {
             let path = &look.path;
-            let acutual_path_result = actual_path(&path);
-            if let Ok(actual_path) = acutual_path_result {
+            let actual_path_result = actual_path(&path);
+            if let Ok(actual_path) = actual_path_result {
                 println!("Working on looking...");
                 let mut parser = Parser::new();
                 let result = parser.parse(&actual_path);
