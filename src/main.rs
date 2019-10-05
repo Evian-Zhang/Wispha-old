@@ -95,7 +95,7 @@ fn deal_with_generator_error(generator_error: &GeneratorError) {
             eprintln!("Path {} is not a directory.", path.to_str().unwrap());
         },
         GeneratorError::NameNotDetermined(path) => {
-            eprintln!("Cannot dertermine the entry name of {}.", path.to_str().unwrap());
+            eprintln!("Cannot determine the entry name of {}.", path.to_str().unwrap());
         },
         GeneratorError::NameNotValid(path) => {
             eprintln!("Path {} contains invalid characters.", path.to_str().unwrap());
