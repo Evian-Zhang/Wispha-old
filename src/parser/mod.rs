@@ -12,6 +12,7 @@ use error::{ParserErrorInfo, ParserError};
 use std::cell::RefCell;
 use std::string::ParseError;
 use std::borrow::Borrow;
+use std::collections::HashMap;
 
 type Result<T> = std::result::Result<T, ParserError>;
 
@@ -196,18 +197,22 @@ impl Clone for WisphaRawProperty {
 
 pub struct Parser {
     expected_tokens: Option<Vec<(WisphaToken, Vec<WisphaExpectOption>)>>,
+    files: HashMap<PathBuf, Rc<RefCell<WisphaFatEntry>>>,
 }
 
 impl Parser {
     pub fn new() -> Parser {
         Parser {
             expected_tokens: Some(vec![(WisphaToken::default_header_token_with_depth(1), vec![WisphaExpectOption::IgnoreContent])]),
+            files: HashMap::new(),
         }
     }
 
     pub fn parse(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         env::set_var(wispha::ROOT_DIR_VAR, file_path.parent().unwrap().to_str().unwrap());
-        self.parse_with_env_set(file_path)
+        let result = self.parse_with_env_set(file_path);
+        self.files.clear();
+        result
     }
 
     fn parse_with_env_set(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
@@ -216,6 +221,7 @@ impl Parser {
         let tokens = self.tokenize(content, file_path);
         let mut root = self.build_wispha_entry_with_relative_path(tokens, 1)?;
         self.resolve(&mut RefCell::new(Rc::clone(&root)))?;
+        self.files.insert(file_path.to_path_buf(), Rc::clone(&root));
         Ok(root)
     }
 
@@ -422,7 +428,12 @@ impl Parser {
             }
 
             WisphaFatEntry::Intermediate(intermediate_entry) => {
-                *entry.borrow_mut() = self.parse_with_env_set(&intermediate_entry.entry_file_path.clone())?;
+                let file_path = intermediate_entry.entry_file_path.clone();
+                *entry.borrow_mut() = if let Some(entry) = self.files.get(&file_path) {
+                    Rc::clone(entry)
+                } else {
+                    self.parse_with_env_set(&intermediate_entry.entry_file_path.clone())?
+                };
             }
         }
         Ok(())
