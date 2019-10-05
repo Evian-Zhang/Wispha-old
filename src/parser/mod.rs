@@ -9,7 +9,7 @@ use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, W
 
 pub mod error;
 use error::{ParserErrorInfo, ParserError};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::string::ParseError;
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -220,7 +220,7 @@ impl Parser {
             .or(Err(ParserError::FileCannotRead(file_path.to_path_buf())))?;
         let tokens = self.tokenize(content, file_path);
         let mut root = self.build_wispha_entry_with_relative_path(tokens, 1)?;
-        self.resolve(&mut RefCell::new(Rc::clone(&root)))?;
+        root = self.resolve(Rc::clone(&root))?;
         self.files.insert(file_path.to_path_buf(), Rc::clone(&root));
         Ok(root)
     }
@@ -415,28 +415,27 @@ impl Parser {
         Ok(Rc::new(RefCell::new(WisphaFatEntry::Immediate(immediate_entry))))
     }
 
-    fn resolve(&mut self, entry: &RefCell<Rc<RefCell<WisphaFatEntry>>>) -> Result<()> {
-        let entry_mut = &mut *entry.borrow_mut();
-        let entry_mut_mut = &mut *entry_mut.borrow_mut();
-        match entry_mut_mut {
+    fn resolve(&mut self, entry: Rc<RefCell<WisphaFatEntry>>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+        match &mut *(*entry).borrow_mut() {
             WisphaFatEntry::Immediate(immediate_entry) => {
                 immediate_entry.sup_entry = RefCell::new(Weak::new());
                 for sub_entry in &mut *immediate_entry.sub_entries.borrow_mut() {
-                    self.resolve(&RefCell::new(Rc::clone(sub_entry)));
-                    sub_entry.borrow_mut().get_immediate_entry_mut().unwrap().sup_entry = RefCell::new(Rc::downgrade(&entry_mut));
+                    *sub_entry = self.resolve(Rc::clone(sub_entry))?;
+                    sub_entry.borrow_mut().get_immediate_entry_mut().unwrap().sup_entry = RefCell::new(Rc::downgrade(&entry));
                 }
+                Ok(Rc::clone(&entry))
             }
 
             WisphaFatEntry::Intermediate(intermediate_entry) => {
                 let file_path = intermediate_entry.entry_file_path.clone();
-                *entry.borrow_mut() = if let Some(entry) = self.files.get(&file_path) {
+                let entry = if let Some(entry) = self.files.get(&file_path) {
                     Rc::clone(entry)
                 } else {
-                    self.parse_with_env_set(&intermediate_entry.entry_file_path.clone())?
+                    self.parse_with_env_set(&file_path)?
                 };
+                Ok(entry)
             }
         }
-        Ok(())
     }
 
     fn is_token_expected(&self, token: &WisphaToken) -> bool {
