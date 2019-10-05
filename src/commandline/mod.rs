@@ -162,12 +162,14 @@ pub enum LookSubcommand {
 
 #[derive(StructOpt)]
 pub struct Cd {
+    #[structopt(short, long)]
     pub local: bool,
     pub path: PathBuf,
 }
 
 #[derive(StructOpt)]
 pub struct Ls {
+    #[structopt(short, long)]
     pub local: bool,
     pub path: Option<PathBuf>,
 }
