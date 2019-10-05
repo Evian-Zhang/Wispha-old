@@ -86,6 +86,7 @@ fn deal_with_ignore_error(ignore_error: &ignore::Error) {
 }
 
 fn deal_with_generator_error(generator_error: &GeneratorError) {
+    eprintln!("{}", style("error").red());
     match generator_error {
         GeneratorError::DirCannotRead(path) => {
             eprintln!("Cannot read directory {}.", path.to_str().unwrap());
@@ -149,8 +150,9 @@ fn main() {
                     layer
                 };
                 let path = &generate.path;
-                let acutual_path_result = actual_path(&path);
-                if let Ok(actual_path) = acutual_path_result {
+                let actual_path_result = actual_path(&path);
+                if let Ok(actual_path) = actual_path_result {
+                    println!("Generating...");
                     let result = generator::generate(&actual_path, options);
                     match result {
                         Ok(_) => {
