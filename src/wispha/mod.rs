@@ -36,12 +36,14 @@ pub const SUB_ENTRIES_HEADER: &str = "subentry";
 pub const ROOT_DIR: &str = "$ROOT_DIR";
 pub const ROOT_DIR_VAR: &str = "WISPHA_ROOT_DIR";
 
+#[derive(Copy, Clone)]
 pub enum WisphaEntryType {
     Directory, // if the entry is a directory
     File, // if the entry is a file in a directory
     ProgramEntry, // if the entry is a programmatic stuff in a file
 }
 
+#[derive(Clone)]
 pub struct WisphaEntryProperties {
     pub entry_type: WisphaEntryType,
     pub name: String,
@@ -51,11 +53,13 @@ pub struct WisphaEntryProperties {
 }
 
 // like soft link
+#[derive(Clone)]
 pub struct WisphaIntermediateEntry {
     pub entry_file_path: PathBuf, // tells where to find the actual file. The path can be absolute, relative or start with `$ROOT_DIR`
 }
 
 // the structure used as tree node
+#[derive(Clone)]
 pub enum WisphaFatEntry {
     Intermediate(WisphaIntermediateEntry),
     Immediate(WisphaEntry),
@@ -82,34 +86,6 @@ impl WisphaEntryType {
             FILE_TYPE => Some(WisphaEntryType::File),
             PROGRAM_ENTRY_TYPE => Some(WisphaEntryType::ProgramEntry),
             _ => None,
-        }
-    }
-}
-
-impl Copy for WisphaEntryType { }
-
-impl Clone for WisphaEntryType {
-    fn clone(&self) -> WisphaEntryType {
-        *self
-    }
-}
-
-impl Clone for WisphaEntryProperties {
-    fn clone(&self) -> Self {
-        WisphaEntryProperties {
-            entry_type: self.entry_type,
-            name: self.name.clone(),
-            description: self.description.clone(),
-            absolute_path: self.absolute_path.clone(),
-            file_path:self.file_path.clone(),
-        }
-    }
-}
-
-impl Clone for WisphaIntermediateEntry {
-    fn clone(&self) -> Self {
-        WisphaIntermediateEntry {
-            entry_file_path: self.entry_file_path.clone(),
         }
     }
 }
@@ -144,15 +120,6 @@ impl WisphaFatEntry {
     }
 }
 
-impl Clone for WisphaFatEntry {
-    fn clone(&self) -> Self {
-        match &self {
-            WisphaFatEntry::Intermediate(entry) => WisphaFatEntry::Intermediate(entry.clone()),
-            WisphaFatEntry::Immediate(entry) => WisphaFatEntry::Immediate(entry.clone()),
-        }
-    }
-}
-
 impl WisphaEntry {
     pub fn default() -> WisphaEntry {
         let properties = WisphaEntryProperties {
@@ -177,10 +144,14 @@ impl WisphaEntry {
 
 impl Clone for WisphaEntry {
     fn clone(&self) -> Self {
-        WisphaEntry {
+        let mut cloned = WisphaEntry {
             properties: self.properties.clone(),
             sup_entry: self.sup_entry.clone(),
-            sub_entries: self.sub_entries.clone(),
+            sub_entries: RefCell::new(Vec::new()),
+        };
+        for sub_entry in &*self.sub_entries.borrow() {
+            cloned.sub_entries.borrow_mut().push(Rc::new((**sub_entry).clone()));
         }
+        cloned
     }
 }
