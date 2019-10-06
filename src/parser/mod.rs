@@ -429,7 +429,7 @@ impl Parser {
             WisphaFatEntry::Intermediate(intermediate_entry) => {
                 let file_path = intermediate_entry.entry_file_path.clone();
                 let entry = if let Some(entry) = self.files.get(&file_path) {
-                    Rc::clone(entry)
+                    Rc::new((**entry).clone())
                 } else {
                     self.parse_with_env_set(&file_path)?
                 };
