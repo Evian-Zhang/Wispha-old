@@ -21,20 +21,11 @@ struct WisphaRawEntry {
     body: String,
 }
 
+#[derive(Clone)]
 pub struct WisphaRawToken {
     pub content: String,
     pub line_number: usize,
     pub file_path: PathBuf,
-}
-
-impl Clone for WisphaRawToken {
-    fn clone(&self) -> Self {
-        WisphaRawToken {
-            content: self.content.clone(),
-            line_number: self.line_number.clone(),
-            file_path: self.file_path.clone(),
-        }
-    }
 }
 
 #[derive(Clone, PartialEq)]
