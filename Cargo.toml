@@ -12,4 +12,4 @@ structopt = "*"
 ignore = "*"
 console = "*"
 toml = "*"
-serde = "*"
+serde = { version = "*", features = ["derive"] }

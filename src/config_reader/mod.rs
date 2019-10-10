@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 
 use toml;
-//use toml::de::Deserializer;
-//use serde_derive::Deserialize;
-use serde::de::Deserialize;
+use serde::Deserialize;
 
 mod error;
 use error::ConfigError;
@@ -22,5 +20,12 @@ pub struct PropertyConfig {
 }
 
 pub fn read_configs(content: String) -> Result<Config> {
-    toml::from_str(&content).or_else(|error| ConfigError::DeserializeError(error))?
+    match toml::from_str::<Config>(&content) {
+        Ok(config) => {
+            Ok(config)
+        },
+        Err(error) => {
+            Err(ConfigError::DeserializeError(error))
+        },
+    }
 }

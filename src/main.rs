@@ -136,17 +136,6 @@ fn deal_with_parser_error(parser_error: &ParserError) {
 }
 
 fn main() {
-    let config_file = r#"[[properties]]
-    name = "Author"
-    default_value = "evian"
-    [[properties]]
-    name = "Date"
-    default_value = "today"
-    "#;
-    let config = config_reader::read_configs(config_file.to_string())?;
-    for property in config.properties {
-        println!("{}", property.name);
-    }
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
