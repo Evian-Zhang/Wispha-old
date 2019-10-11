@@ -11,6 +11,7 @@ use crate::commandline::{WisphaCommand, Subcommand, Generate, Look};
 use crate::generator::{error::GeneratorError, option::*};
 use crate::parser::{error::{ParserError, ParserErrorInfo}, *};
 use crate::manipulator::Manipulator;
+use crate::config_reader::error::ConfigError;
 
 
 use structopt::StructOpt;
@@ -135,12 +136,16 @@ fn deal_with_parser_error(parser_error: &ParserError) {
     }
 }
 
+fn deal_with_config_error(config_error: &ConfigError) {
+
+}
+
 fn main() {
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
-            if generate.flat && generate.recursively {
-                eprintln!("Cannot specify flat and recursively at same time.");
+            if let Some(error_message) = generate.is_invalid() {
+                eprintln!(error_message);
             } else {
                 let layer = if generate.flat {
                     GenerateLayer::Flat
@@ -154,13 +159,20 @@ fn main() {
                 let actual_path_result = actual_path(&path);
                 if let Ok(actual_path) = actual_path_result {
                     println!("Generating...");
-                    let result = generator::generate(&actual_path, options);
-                    match result {
-                        Ok(_) => {
-                            println!("Successfully generate!");
+                    match config_reader::read_configs_in_dir(actual_path) {
+                        Ok(config) => {
+                            let result = generator::generate(&actual_path, options);
+                            match result {
+                                Ok(_) => {
+                                    println!("Successfully generate!");
+                                },
+                                Err(generator_error) => {
+                                    deal_with_generator_error(&generator_error);
+                                },
+                            }
                         },
-                        Err(generator_error) => {
-                            deal_with_generator_error(&generator_error);
+                        Err(config_error) => {
+                            deal_with_config_error(&config_error)
                         },
                     }
                 } else {

@@ -39,6 +39,15 @@ pub struct Look {
     pub path: PathBuf,
 }
 
+impl Generate {
+    pub fn is_invalid(&self) -> Option<&str> {
+        if self.flat && self.recursively {
+            return Some("Cannot specify flat and recursively at same time.");
+        }
+        None
+    }
+}
+
 
 const MAX_INPUT_LENGTH: u64 = 256;
 

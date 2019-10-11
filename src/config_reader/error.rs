@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Debug, Result};
+use std::path::PathBuf;
 use toml;
 
 pub enum ConfigError {
