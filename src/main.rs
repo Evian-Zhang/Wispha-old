@@ -137,7 +137,13 @@ fn deal_with_parser_error(parser_error: &ParserError) {
 }
 
 fn deal_with_config_error(config_error: &ConfigError) {
-
+    use ConfigError::*;
+    eprintln!("{}", style("error").red());
+    match config_error {
+        DeserializeError(error) => {
+            eprintln!("{}", error);
+        },
+    }
 }
 
 fn main() {
