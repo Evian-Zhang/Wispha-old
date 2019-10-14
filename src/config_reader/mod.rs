@@ -20,6 +20,7 @@ pub struct Config {
 #[derive(Deserialize, Clone)]
 pub struct GenerateConfig {
     pub allow_hidden_files: Option<bool>,
+    pub ignored_files: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -33,8 +34,7 @@ impl Config {
 }
 
 pub fn read_configs_in_dir(dir: &PathBuf) -> Result<Option<Config>> {
-    let mut path = dir.clone();
-    path.push(CONFIG_FILE_NAME);
+    let path = dir.join(CONFIG_FILE_NAME);
     read_configs_from_path(&path)
 }
 

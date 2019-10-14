@@ -6,7 +6,7 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use std::ops::Add;
 use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
-use ignore::{Walk, WalkBuilder};
+use ignore::{Walk, WalkBuilder, gitignore::{GitignoreBuilder, Gitignore}};
 
 pub mod error;
 use error::GeneratorError;
@@ -20,10 +20,10 @@ pub type Result<T> = std::result::Result<T, GeneratorError>;
 pub fn generate(path: &PathBuf, options: GeneratorOptions) -> Result<()> {
     let root = match &options.layer {
         GenerateLayer::Flat => {
-            generate_file_at_path_flat(&path, &path, &get_ignored_files_from_root(path)?, &options)?
+            generate_file_at_path_flat(&path, &path, &get_ignored_files_from_root(path, &options.ignored_files)?, &options)?
         },
         GenerateLayer::Recursive => {
-            generate_file_at_path_recursively(&path, &path, &get_ignored_files_from_root(path)?, &options)?
+            generate_file_at_path_recursively(&path, &path, &get_ignored_files_from_root(path, &options.ignored_files)?, &options)?
         },
     };
     let root_path = path.join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
@@ -32,21 +32,14 @@ pub fn generate(path: &PathBuf, options: GeneratorOptions) -> Result<()> {
     Ok(())
 }
 
-// traverse from `root_dir` to find .wisphaignore file. `root_dir` is absolute. If there is none, return `Ok(Vec::new())`
-fn get_ignored_files_from_root(root_dir: &PathBuf) -> Result<Vec<PathBuf>> {
-    // TODO: This way of using `WalkBuilder` is wrong, the `ignored_files` contains unignored files.
-    let walk = WalkBuilder::new(root_dir)
-        .standard_filters(false)
-        .parents(true)
-        .add_custom_ignore_filename(wispha::IGNORE_FILE_NAME_STR)
-        .build();
-
-    let mut ignored_files: Vec<PathBuf> = Vec::new();
-    for dir_entry in walk {
-        let dir_entry = dir_entry?;
-        ignored_files.push(dir_entry.path().to_path_buf());
+// from `root_dir` to find ignore file. `root_dir` is absolute.
+fn get_ignored_files_from_root(root_dir: &PathBuf, ignored_files: &Vec<String>) -> Result<Gitignore> {
+    let mut ignore_builder = GitignoreBuilder::new(root_dir);
+    for ignored_file in ignored_files {
+        ignore_builder.add_line(None, ignored_file).or_else(|error| Err(GeneratorError::IgnoreError(error)))?;
     }
-    Ok(ignored_files)
+    let wispha_ignore = ignore_builder.build().or_else(|error| Err(GeneratorError::IgnoreError(error)))?;
+    Ok(wispha_ignore)
 }
 
 // `path` is absolute
@@ -67,12 +60,10 @@ fn generate_file_at_path_without_sub_and_sup(path: &PathBuf) -> Result<WisphaEnt
     Ok(wispha_entry)
 }
 
-fn should_include_entry(entry: &DirEntry, ignored_files: &Vec<PathBuf>, options: &GeneratorOptions) -> bool {
-    println!("zs{:?}", ignored_files);
-    if ignored_files.contains(&entry.path()) {
-        return false;
+fn should_include_entry(entry: &DirEntry, wispha_ignore: &Gitignore, options: &GeneratorOptions) -> bool {
+    if wispha_ignore.matched(&entry.path(), entry.path().is_dir()).is_ignore() {
+        return false
     }
-    println!("{}\n{}\n\n\n", entry.file_name().to_str().unwrap(), entry.file_name().to_str().map(|s| s.starts_with(".")).unwrap_or(false));
     if entry.file_name().to_str().map(|s| s.starts_with(".")).unwrap_or(false) {
         return options.allow_hidden_files;
     }
@@ -80,7 +71,7 @@ fn should_include_entry(entry: &DirEntry, ignored_files: &Vec<PathBuf>, options:
 }
 
 // `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative. Write all sub_entry to disk
-fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec<PathBuf>, options: &GeneratorOptions) -> Result<WisphaEntry> {
+fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
     let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
@@ -113,7 +104,7 @@ fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored
 }
 
 // `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Not write sub_entry to disk
-fn generate_file_at_path_flat(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Vec<PathBuf>, options: &GeneratorOptions) -> Result<WisphaEntry> {
+fn generate_file_at_path_flat(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
     let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {

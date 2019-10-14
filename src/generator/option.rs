@@ -11,6 +11,7 @@ pub struct GeneratorOptions {
     pub layer: GenerateLayer,
     pub allow_hidden_files: bool,
     pub properties: Vec<PropertyConfig>,
+    pub ignored_files: Vec<String>,
 }
 
 pub enum GenerateLayer {
@@ -24,6 +25,7 @@ impl GeneratorOptions {
             layer: GenerateLayer::Flat,
             allow_hidden_files: false,
             properties: vec![],
+            ignored_files: vec![],
         }
     }
 
@@ -45,6 +47,9 @@ impl GeneratorOptions {
         if let Some(generate_config) = &config.generate {
             if let Some(allow_hidden_file) = generate_config.allow_hidden_files {
                 self.allow_hidden_files = allow_hidden_file;
+            }
+            if let Some(ignored_files) = &generate_config.ignored_files {
+                self.ignored_files = ignored_files.clone();
             }
         }
         if let Some(properties) = &config.properties {
