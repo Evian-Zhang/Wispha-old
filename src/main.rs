@@ -49,7 +49,7 @@ fn deal_with_config_error(config_error: &ConfigError) {
     eprintln!("{}", config_error);
 }
 
-fn main_with_error() -> Result<(), Box<dyn Error>> {
+fn main_with_error() -> Result<(), MainError> {
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
@@ -90,6 +90,10 @@ fn main() {
 #[derive(Debug)]
 pub enum MainError {
     DirectoryNotDetermined,
+    GeneratorError(GeneratorError),
+    ParserError(ParserError),
+    GeneratorOptionError(GeneratorOptionError),
+    ConfigError(ConfigError)
 }
 
 impl Error for MainError { }
@@ -97,10 +101,47 @@ impl Error for MainError { }
 impl Display for MainError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use MainError::*;
-        match &self {
+        let error_message = match &self {
             DirectoryNotDetermined => {
-                write!(f, "Can't determine current directory.")
-            }
-        }
+                format!("Can't determine current directory.")
+            },
+            GeneratorError(error) => {
+                format!("{}", error)
+            },
+            ParserError(error) => {
+                format!("{}", error)
+            },
+            GeneratorOptionError(error) => {
+                format!("{}", error)
+            },
+            ConfigError(error) => {
+                format!("{}", error)
+            },
+        };
+        write!(f, "{}", error_message)
+    }
+}
+
+impl From<GeneratorError> for MainError {
+    fn from(error: GeneratorError) -> Self {
+        MainError::GeneratorError(error)
+    }
+}
+
+impl From<ParserError> for MainError {
+    fn from(error: ParserError) -> Self {
+        MainError::ParserError(error)
+    }
+}
+
+impl From<GeneratorOptionError> for MainError {
+    fn from(error: GeneratorOptionError) -> Self {
+        MainError::GeneratorOptionError(error)
+    }
+}
+
+impl From<ConfigError> for MainError {
+    fn from(error: ConfigError) -> Self {
+        MainError::ConfigError(error)
     }
 }
