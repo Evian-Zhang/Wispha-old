@@ -220,11 +220,6 @@ impl Parser {
 
     fn tokenize(&mut self, mut content: String, file_path: &Path) -> Vec<Rc<WisphaToken>> {
         let mut tokens = Vec::new();
-        // TODO: If A file starts with empty line, the line number is incorrect
-        content = content.trim().to_string();
-        if content.len() == 0 {
-            content = String::from("\n");
-        }
         for (line_index, line_content) in content.lines().enumerate() {
             let token = self.parse_line(line_content.to_string(), line_index + 1, file_path);
             tokens.push(Rc::new(token));
@@ -261,7 +256,7 @@ impl Parser {
     }
 
     fn build_wispha_properties(&mut self, tokens: Vec<Rc<WisphaToken>>, depth: usize) -> Result<Vec<WisphaRawProperty>> {
-        self.expected_tokens = Some(vec![(WisphaToken::default_header_token_with_depth(depth), vec![WisphaExpectOption::IgnoreContent])]);
+        self.expected_tokens = Some(vec![(WisphaToken::default_header_token_with_depth(depth), vec![WisphaExpectOption::IgnoreContent]), (WisphaToken::empty_body_token(), vec![])]);
         let mut properties = Vec::new();
         let mut token_index = 0;
         while let Some(token) = tokens.get(token_index) {
@@ -361,7 +356,7 @@ impl Parser {
         for property in properties {
             immediate_entry.properties.file_path = property.header.raw_token().file_path.clone();
             match property.header.raw_token().content.as_str() {
-                ABSOLUTE_PATH_HEADER => {;
+                ABSOLUTE_PATH_HEADER => {
                     if let Some(content_token) = self.get_content_token_from_body(property.body)? {
                         let raw = content_token.raw_token().content.trim().to_string();
                         let current_dir = content_token.raw_token().file_path.clone().parent().unwrap().to_path_buf();

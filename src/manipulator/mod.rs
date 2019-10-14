@@ -64,7 +64,11 @@ impl Manipulator {
             .properties
             .absolute_path.clone();
         let root_dir = PathBuf::from(env::var(ROOT_DIR_VAR).unwrap());
-        PathBuf::from(ROOT_DIR).join(raw.strip_prefix(root_dir).unwrap().to_path_buf())
+        if raw.starts_with(&root_dir) {
+            PathBuf::from(ROOT_DIR).join(raw.strip_prefix(root_dir).unwrap().to_path_buf())
+        } else {
+            PathBuf::from(ROOT_DIR).join(raw)
+        }
     }
 
     pub fn current_list(&self) -> String {
