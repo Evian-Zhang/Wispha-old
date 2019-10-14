@@ -1,14 +1,15 @@
 use structopt::StructOpt;
+use console::style;
 
 use std::path::PathBuf;
-use std::io::{self, Read, BufReader, BufRead, Write};
+use std::io::{self, Read, BufReader, Write, Stdin, Take, BufRead};
+use std::result::Result;
+use std::error::Error;
 
 use crate::manipulator::{Manipulator, error::ManipulatorError};
 use crate::commandline::input_parser::InputParser;
 
 mod input_parser;
-
-use console::style;
 
 #[derive(StructOpt)]
 pub struct WisphaCommand {
@@ -37,112 +38,6 @@ pub struct Look {
     pub path: PathBuf,
 }
 
-const MAX_INPUT_LENGTH: u64 = 256;
-
-fn handle_manipulator_error(error: ManipulatorError) {
-    match error {
-        ManipulatorError::PathNotEntry(path) => {
-            eprintln!("Cannot find entry in {}", path.to_str().unwrap());
-        },
-        ManipulatorError::PathNotExist => {
-            eprintln!("Path not exist!");
-        },
-        ManipulatorError::AbsolutePathNotSupported => {
-            eprintln!("Don't support absolute path.");
-        },
-        ManipulatorError::BeyondDomain => {
-            eprintln!("Path is beyond wispha domain.");
-        },
-        ManipulatorError::EntryNotFound(path) => {
-            eprintln!("Cannot find entry in {}", path.to_str().unwrap());
-        },
-        ManipulatorError::Unexpected => {
-            eprintln!("Unexpected error.");},
-    }
-}
-
-pub fn continue_program(mut manipulator: Manipulator) {
-    let mut input = String::new();
-    let stdin = io::stdin();
-    let mut bstdin = BufReader::new(stdin.take(MAX_INPUT_LENGTH));
-    loop {
-        let prompt = format!("wispha@{} >", manipulator.current_path().to_str().unwrap());
-        print!("{}", style(prompt).cyan());
-        io::stdout().flush().unwrap();
-        input.clear();
-        bstdin.read_line(&mut input).unwrap();
-        input = input.trim().to_string();
-
-        let input_parser = InputParser::new(input.clone());
-        let mut input_tokens: Vec<String> = input_parser.collect();
-        input_tokens.insert(0, String::from("wispha"));
-        match LookCommand::from_iter_safe(input_tokens) {
-            Ok(look_command) => {
-                match look_command.subcommand {
-                    LookSubcommand::Cd(cd) => {
-                        if cd.local {
-                            if let Err(error) = manipulator.set_current_entry_to_local_path(&cd.path) {
-                                handle_manipulator_error(error);
-                            }
-                        } else {
-                            if let Err(error) = manipulator.set_current_entry_to_path(&cd.path) {
-                                handle_manipulator_error(error);
-                            }
-                        }
-                    },
-
-                    LookSubcommand::Ls(ls) => {
-                        match ls.path {
-                            Some(path) => {
-                                if ls.local {
-                                    match manipulator.list_of_local_path(&path) {
-                                        Ok(list) => {
-                                            if list.len() > 0 {
-                                                println!("{}", list);
-                                            }
-                                        },
-
-                                        Err(err) => {
-                                            handle_manipulator_error(err);
-                                        }
-                                    }
-                                } else {
-                                    match manipulator.list_of_path(&path) {
-                                        Ok(list) => {
-                                            if list.len() > 0 {
-                                                println!("{}", list);
-                                            }
-                                        },
-
-                                        Err(err) => {
-                                            handle_manipulator_error(err);
-                                        }
-                                    }
-                                }
-                            }
-
-                            None => {
-                                let list = manipulator.current_list();
-
-                                if list.len() > 0 {
-                                    println!("{}", list);
-                                }
-                            }
-                        }
-                    },
-
-                    LookSubcommand::Quit => {
-                        return;
-                    },
-                }
-            },
-            Err(error) => {
-                println!("{}", error);
-            }
-        }
-    }
-}
-
 #[derive(StructOpt)]
 pub struct LookCommand {
     #[structopt(subcommand)]
@@ -169,4 +64,89 @@ pub struct Ls {
     #[structopt(short, long)]
     pub local: bool,
     pub path: Option<PathBuf>,
+}
+
+enum ProgramState {
+    Continuing,
+    Quiting,
+}
+
+const MAX_INPUT_LENGTH: u64 = 256;
+
+pub fn continue_program(mut manipulator: Manipulator) {
+    let stdin = io::stdin();
+    let mut bstdin = BufReader::new(stdin.take(MAX_INPUT_LENGTH));
+    loop {
+        let result = continue_program_with_error(&mut manipulator, &mut bstdin);
+        match result {
+            Ok(state) => {
+                match state {
+                    ProgramState::Continuing => {
+
+                    },
+                    ProgramState::Quiting => {
+                        return;
+                    },
+                }
+            },
+            Err(error) => {
+                eprintln!("{}", error);
+            }
+        }
+    }
+}
+
+fn continue_program_with_error(manipulator: &mut Manipulator, bstdin: &mut BufReader<Take<Stdin>>) -> Result<ProgramState, ManipulatorError> {
+    let prompt = format!("wispha@{} >", manipulator.current_path().to_str().unwrap());
+    print!("{}", style(prompt).cyan());
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    input.clear();
+    bstdin.read_line(&mut input).unwrap();
+    let input = input.trim().to_string();
+
+    let input_parser = InputParser::new(input.clone());
+    let mut input_tokens: Vec<String> = input_parser.collect();
+    input_tokens.insert(0, String::from("wispha"));
+    let look_command = LookCommand::from_iter_safe(input_tokens).unwrap();
+    match look_command.subcommand {
+        LookSubcommand::Cd(cd) => {
+            if cd.local {
+                manipulator.set_current_entry_to_local_path(&cd.path)?;
+            } else {
+                manipulator.set_current_entry_to_path(&cd.path)?;
+            }
+        },
+
+        LookSubcommand::Ls(ls) => {
+            match ls.path {
+                Some(path) => {
+                    if ls.local {
+                        let list = manipulator.list_of_local_path(&path)?;
+                        if list.len() > 0 {
+                            println!("{}", list);
+                        }
+                    } else {
+                        let list = manipulator.list_of_path(&path)?;
+                        if list.len() > 0 {
+                            println!("{}", list);
+                        }
+                    }
+                }
+
+                None => {
+                    let list = manipulator.current_list();
+
+                    if list.len() > 0 {
+                        println!("{}", list);
+                    }
+                }
+            }
+        },
+
+        LookSubcommand::Quit => {
+            return Ok(ProgramState::Quiting);
+        },
+    }
+    Ok(ProgramState::Continuing)
 }

@@ -30,13 +30,13 @@ impl Config {
     }
 }
 
-pub fn read_configs_in_dir(dir: PathBuf) -> Result<Option<Config>> {
+pub fn read_configs_in_dir(dir: &PathBuf) -> Result<Option<Config>> {
     let mut path = dir.clone();
     path.push(CONFIG_FILE_NAME);
-    read_configs_from_path(path)
+    read_configs_from_path(&path)
 }
 
-pub fn read_configs_from_path(path: PathBuf) -> Result<Option<Config>> {
+pub fn read_configs_from_path(path: &PathBuf) -> Result<Option<Config>> {
     match fs::read_to_string(path) {
         Ok(content) => {
             read_configs(content)

@@ -21,20 +21,21 @@ struct WisphaRawEntry {
     body: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WisphaRawToken {
     pub content: String,
     pub line_number: usize,
     pub file_path: PathBuf,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum WisphaExpectOption {
     IgnoreDepth,
     AllowLowerDepth,
     IgnoreContent,
 }
 
+#[derive(Debug)]
 pub enum WisphaToken {
     Header(WisphaRawToken, usize),
     Body(WisphaRawToken),

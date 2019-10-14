@@ -26,6 +26,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use std::result::Result;
+use std::boxed::Box;
 
 fn actual_path(raw: &PathBuf) -> Result<PathBuf, MainError> {
     if raw.is_absolute() {
@@ -88,51 +89,13 @@ fn deal_with_ignore_error(ignore_error: &ignore::Error) {
 
 fn deal_with_generator_error(generator_error: &GeneratorError) {
     eprintln!("{}", style("error").red());
-    match generator_error {
-        GeneratorError::DirCannotRead(path) => {
-            eprintln!("Cannot read directory {}.", path.to_str().unwrap());
-        },
-        GeneratorError::PathIsNotDir(path) => {
-            eprintln!("Path {} is not a directory.", path.to_str().unwrap());
-        },
-        GeneratorError::NameNotDetermined(path) => {
-            eprintln!("Cannot determine the entry name of {}.", path.to_str().unwrap());
-        },
-        GeneratorError::NameNotValid(path) => {
-            eprintln!("Path {} contains invalid characters.", path.to_str().unwrap());
-        },
-        GeneratorError::IgnoreError(ignore_error) => {
-            deal_with_ignore_error(&ignore_error);
-        }
-        GeneratorError::Unexpected => {
-            eprintln!("Unexpected error. Please retry.");
-        },
-        GeneratorError::FileCannotWrite(path) => {
-            eprintln!("Cannot write to file {}. Permission denied.", path.to_str().unwrap());
-        }
-    }
+    eprintln!("{}", generator_error);
 }
 
 fn deal_with_parser_error(parser_error: &ParserError) {
     use ParserError::*;
     eprintln!("{}", style("error").red());
-    match parser_error {
-        UnrecognizedEntryFileType(token) => {
-            eprintln!("In file {}, line {}:\nUnrecognized entry file type {}.", token.raw_token().file_path.to_str().unwrap(), token.raw_token().line_number, token.raw_token().content);
-        },
-        FileCannotRead(path) => {
-            eprintln!("Cannot read file {}.", path.to_str().unwrap());
-        },
-        UnexpectedToken(token, _) => {
-            eprintln!("In file {}, line {}:\nUnexpected token {}", token.raw_token().file_path.to_str().unwrap(), token.raw_token().line_number, token.raw_token().content);
-        },
-        EmptyBody(token) => {
-            eprintln!("In file {}, line {}:\nProperty {} has empty body.", token.raw_token().file_path.to_str().unwrap(), token.raw_token().line_number, token.raw_token().content);
-        },
-        EnvNotFound => {
-            eprintln!("Cannot determine the environment variable.");
-        },
-    }
+    eprintln!("{}", parser_error);
 }
 
 fn deal_with_config_error(config_error: &ConfigError) {
@@ -145,7 +108,7 @@ fn deal_with_config_error(config_error: &ConfigError) {
     }
 }
 
-fn main_with_error() -> Result<(), dyn Error> {
+fn main_with_error() -> Result<(), Box<dyn Error>> {
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
@@ -154,7 +117,7 @@ fn main_with_error() -> Result<(), dyn Error> {
             let path = &generate.path;
             let actual_path = actual_path(&path)?;
             println!("Generating...");
-            let config = config_reader::read_configs_in_dir(actual_path)?;
+            let config = config_reader::read_configs_in_dir(&actual_path)?;
             generator::generate(&actual_path, options)?;
             println!("Successfully generate!");
         },

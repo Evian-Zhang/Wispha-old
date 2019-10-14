@@ -3,11 +3,6 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
-mod error;
-use error::WisphaError;
-
-type Result<T> = std::result::Result<T, WisphaError>;
-
 const DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
 const DEFAULT_NAME: &str = "default name";
 const DEFAULT_DESCRIPTION: &str = "default description";

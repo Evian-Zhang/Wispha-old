@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter, Debug};
 use std::path::PathBuf;
 use toml;
 
-#[dervie(Debug)]
+#[derive(Debug)]
 pub enum ConfigError {
     DeserializeError(toml::de::Error),
 }
@@ -16,8 +16,8 @@ impl Display for ConfigError {
         use ConfigError::*;
         match &self {
             DeserializeError(toml_error) => {
-                let error_message = String::from("{}", toml_error);
-                write!(f, error_message)
+                let error_message = format!("{}", toml_error);
+                write!(f, "{}", error_message)
             },
         }
     }

@@ -43,7 +43,7 @@ impl GeneratorOptions {
         Ok(())
     }
 
-    fn validate_commandline(&self, generate: &generate) -> Result<()> {
+    fn validate_commandline(&self, generate: &Generate) -> Result<()> {
         if generate.flat && generate.recursively {
             return Err(GeneratorOptionError::FlatAndRecursive);
         }
