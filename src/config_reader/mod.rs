@@ -16,7 +16,7 @@ pub struct Config {
     pub properties: Option<Vec<PropertyConfig>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct PropertyConfig {
     pub name: String,
     pub default_value: Option<String>,

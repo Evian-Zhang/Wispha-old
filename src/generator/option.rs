@@ -3,12 +3,13 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Debug};
 
 use crate::commandline::Generate;
-use crate::config_reader::Config;
+use crate::config_reader::{Config, PropertyConfig};
 
 type Result<T> = std::result::Result<T, GeneratorOptionError>;
 
 pub struct GeneratorOptions {
     pub layer: GenerateLayer,
+    pub properties: Vec<PropertyConfig>,
 }
 
 pub enum GenerateLayer {
@@ -20,29 +21,33 @@ impl GeneratorOptions {
     pub fn default() -> GeneratorOptions {
         GeneratorOptions {
             layer: GenerateLayer::Flat,
+            properties: vec![],
         }
     }
 
-    pub fn from_commandline(generate: &Generate) -> Result<GeneratorOptions> {
-        let mut result = GeneratorOptions::default();
+    pub fn update_from_commandline(&mut self, generate: &Generate) -> Result<()> {
+        self.validate_commandline(generate)?;
+        if generate.recursively {
+            self.layer = GenerateLayer::Recursive;
+        }
+        if generate.flat {
+            self.layer = GenerateLayer::Flat;
+        };
+        Ok(())
+    }
+
+    pub fn update_from_config(&mut self, config: &Config) -> Result<()> {
+        if let Some(properties) = &config.properties {
+            self.properties = properties.clone();
+        }
+        Ok(())
+    }
+
+    fn validate_commandline(&self, generate: &generate) -> Result<()> {
         if generate.flat && generate.recursively {
             return Err(GeneratorOptionError::FlatAndRecursive);
         }
-        if generate.recursively {
-            result.layer = GenerateLayer::Recursive;
-        }
-        if generate.flat {
-            result.layer = GenerateLayer::Flat;
-        };
-        Ok(result)
-    }
-
-    pub fn from_config(config: &Config) -> Result<GeneratorOptions> {
-
-    }
-
-    pub fn update(&mut self, options: GeneratorOptions) {
-
+        Ok(())
     }
 }
 

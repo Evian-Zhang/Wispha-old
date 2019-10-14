@@ -1,24 +1,24 @@
 use std::error::Error;
-use std::fmt::{Display, Formatter, Debug, Result};
+use std::fmt;
+use std::fmt::{Display, Formatter, Debug};
 use std::path::PathBuf;
 use toml;
 
+#[dervie(Debug)]
 pub enum ConfigError {
     DeserializeError(toml::de::Error),
 }
 
-impl Error for ConfigError {
-
-}
+impl Error for ConfigError { }
 
 impl Display for ConfigError {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "")
-    }
-}
-
-impl Debug for ConfigError {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "")
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use ConfigError::*;
+        match &self {
+            DeserializeError(toml_error) => {
+                let error_message = String::from("{}", toml_error);
+                write!(f, error_message)
+            },
+        }
     }
 }

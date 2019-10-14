@@ -4,9 +4,6 @@ mod generator;
 mod commandline;
 mod manipulator;
 mod config_reader;
-mod error;
-
-use error::MainError;
 use crate::commandline::{WisphaCommand, Subcommand, Generate, Look};
 use crate::generator::{error::GeneratorError, option::*};
 use crate::parser::{error::{ParserError, ParserErrorInfo}, *};
@@ -18,22 +15,24 @@ use structopt::StructOpt;
 
 use console::style;
 
-use std::env;
+use std::{env, fmt};
 
 use std::path::{PathBuf, Path};
 
 use std::fs;
 
 use std::io::{self, Read};
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
-type Result<T> = std::result::Result<T, MainError>;
+use std::result::Result;
 
-fn actual_path(raw: &PathBuf) -> Result<PathBuf> {
+fn actual_path(raw: &PathBuf) -> Result<PathBuf, MainError> {
     if raw.is_absolute() {
         return Ok(raw.clone());
     }
 
-    let current_dir = env::current_dir().or(Err(MainError::PathInvalid))?;
+    let current_dir = env::current_dir().or(Err(MainError::DirectoryNotDetermined))?;
     Ok(current_dir.join(raw))
 }
 
@@ -146,66 +145,55 @@ fn deal_with_config_error(config_error: &ConfigError) {
     }
 }
 
-fn main() {
+fn main_with_error() -> Result<(), dyn Error> {
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
-            if let Some(error_message) = generate.is_invalid() {
-                eprintln!(error_message);
-            } else {
-                let layer = if generate.flat {
-                    GenerateLayer::Flat
-                } else {
-                    GenerateLayer::Recursive
-                };
-                let options = GeneratorOptions {
-                    layer
-                };
-                let path = &generate.path;
-                let actual_path_result = actual_path(&path);
-                if let Ok(actual_path) = actual_path_result {
-                    println!("Generating...");
-                    match config_reader::read_configs_in_dir(actual_path) {
-                        Ok(config) => {
-                            let result = generator::generate(&actual_path, options);
-                            match result {
-                                Ok(_) => {
-                                    println!("Successfully generate!");
-                                },
-                                Err(generator_error) => {
-                                    deal_with_generator_error(&generator_error);
-                                },
-                            }
-                        },
-                        Err(config_error) => {
-                            deal_with_config_error(&config_error)
-                        },
-                    }
-                } else {
-                    eprintln!("Path {} does not exist.", path.to_str().unwrap());
-                }
-            }
+            let mut options = GeneratorOptions::default();
+            options.update_from_commandline(generate)?;
+            let path = &generate.path;
+            let actual_path = actual_path(&path)?;
+            println!("Generating...");
+            let config = config_reader::read_configs_in_dir(actual_path)?;
+            generator::generate(&actual_path, options)?;
+            println!("Successfully generate!");
         },
         Subcommand::Look(look) => {
             let path = &look.path;
-            let actual_path_result = actual_path(&path);
-            if let Ok(actual_path) = actual_path_result {
-                println!("Working on looking...");
-                let mut parser = Parser::new();
-                let result = parser.parse(&actual_path);
-                match result {
-                    Ok(root) => {
-                        let manipulator = Manipulator::new(&root, &root);
-                        println!("Looking ready!");
-                        commandline::continue_program(manipulator);
-                    },
-                    Err(parser_error) => {
-                        deal_with_parser_error(&parser_error);
-                    }
-                }
-            } else {
-                eprintln!("Path {} does not exist.", path.to_str().unwrap());
+            let actual_path = actual_path(&path)?;
+            println!("Working on looking...");
+            let mut parser = Parser::new();
+            let root = parser.parse(&actual_path)?;
+            let manipulator = Manipulator::new(&root, &root);
+            println!("Looking ready!");
+            commandline::continue_program(manipulator);
+        }
+    }
+    Ok(())
+}
+
+fn main() {
+    let result = main_with_error();
+    if let Err(error) = result {
+        eprintln!("{}", style("error").red());
+        eprintln!("{}", error);
+    }
+}
+
+#[derive(Debug)]
+pub enum MainError {
+    DirectoryNotDetermined,
+}
+
+impl Error for MainError { }
+
+impl Display for MainError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use MainError::*;
+        match &self {
+            DirectoryNotDetermined => {
+                write!(f, "Can't determine current directory.")
             }
-        },
+        }
     }
 }

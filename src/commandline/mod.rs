@@ -6,11 +6,9 @@ use std::io::{self, Read, BufReader, BufRead, Write};
 use crate::manipulator::{Manipulator, error::ManipulatorError};
 use crate::commandline::input_parser::InputParser;
 
-mod error;
 mod input_parser;
 
 use console::style;
-//use dialoguer::theme::ColorfulTheme;
 
 #[derive(StructOpt)]
 pub struct WisphaCommand {
@@ -38,16 +36,6 @@ pub struct Generate {
 pub struct Look {
     pub path: PathBuf,
 }
-
-impl Generate {
-    pub fn is_invalid(&self) -> Option<&str> {
-        if self.flat && self.recursively {
-            return Some("Cannot specify flat and recursively at same time.");
-        }
-        None
-    }
-}
-
 
 const MAX_INPUT_LENGTH: u64 = 256;
 
