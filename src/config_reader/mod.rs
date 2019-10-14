@@ -13,7 +13,13 @@ pub const CONFIG_FILE_NAME: &str = ".wispharc.toml";
 
 #[derive(Deserialize)]
 pub struct Config {
+    pub generate: Option<GenerateConfig>,
     pub properties: Option<Vec<PropertyConfig>>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct GenerateConfig {
+    pub allow_hidden_files: Option<bool>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -23,11 +29,7 @@ pub struct PropertyConfig {
 }
 
 impl Config {
-    pub fn default() -> Config {
-        Config {
-            properties: None
-        }
-    }
+
 }
 
 pub fn read_configs_in_dir(dir: &PathBuf) -> Result<Option<Config>> {

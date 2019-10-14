@@ -219,6 +219,7 @@ impl Parser {
 
     fn tokenize(&mut self, mut content: String, file_path: &Path) -> Vec<Rc<WisphaToken>> {
         let mut tokens = Vec::new();
+        // TODO: If A file starts with empty line, the line number is incorrect
         content = content.trim().to_string();
         if content.len() == 0 {
             content = String::from("\n");

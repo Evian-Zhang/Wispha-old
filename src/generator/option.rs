@@ -9,6 +9,7 @@ type Result<T> = std::result::Result<T, GeneratorOptionError>;
 
 pub struct GeneratorOptions {
     pub layer: GenerateLayer,
+    pub allow_hidden_files: bool,
     pub properties: Vec<PropertyConfig>,
 }
 
@@ -21,6 +22,7 @@ impl GeneratorOptions {
     pub fn default() -> GeneratorOptions {
         GeneratorOptions {
             layer: GenerateLayer::Flat,
+            allow_hidden_files: false,
             properties: vec![],
         }
     }
@@ -33,10 +35,18 @@ impl GeneratorOptions {
         if generate.flat {
             self.layer = GenerateLayer::Flat;
         };
+        if generate.all {
+            self.allow_hidden_files = true;
+        }
         Ok(())
     }
 
     pub fn update_from_config(&mut self, config: &Config) -> Result<()> {
+        if let Some(generate_config) = &config.generate {
+            if let Some(allow_hidden_file) = generate_config.allow_hidden_files {
+                self.allow_hidden_files = allow_hidden_file;
+            }
+        }
         if let Some(properties) = &config.properties {
             self.properties = properties.clone();
         }

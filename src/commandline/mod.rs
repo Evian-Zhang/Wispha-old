@@ -30,6 +30,8 @@ pub struct Generate {
     pub flat: bool,
     #[structopt(short, long)]
     pub recursively: bool,
+    #[structopt(short, long)]
+    pub all: bool,
     pub path: PathBuf,
 }
 
