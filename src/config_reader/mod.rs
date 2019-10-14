@@ -9,7 +9,7 @@ use error::ConfigError;
 
 type Result<T> = std::result::Result<T, ConfigError>;
 
-pub const CONFIG_FILE_NAME: &str = ".wispharc.toml";
+use crate::strings::*;
 
 #[derive(Deserialize)]
 pub struct Config {

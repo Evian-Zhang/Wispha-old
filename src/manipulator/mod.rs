@@ -10,6 +10,7 @@ use crate::wispha::{self, WisphaEntryType, WisphaEntry, WisphaFatEntry, WisphaIn
 pub mod error;
 use error::ManipulatorError;
 use crate::manipulator::error::ManipulatorError::AbsolutePathNotSupported;
+use crate::strings::*;
 
 type Result<T> = std::result::Result<T, ManipulatorError>;
 
@@ -46,9 +47,9 @@ impl Manipulator {
             return Err(ManipulatorError::AbsolutePathNotSupported);
         }
 
-        self.current_entry = if path.starts_with(wispha::ROOT_DIR) {
-            let remain_path = path.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
-            let used_path = PathBuf::from(wispha::ROOT_DIR);
+        self.current_entry = if path.starts_with(ROOT_DIR) {
+            let remain_path = path.strip_prefix(ROOT_DIR).unwrap().to_path_buf();
+            let used_path = PathBuf::from(ROOT_DIR);
             find_entry(Rc::clone(&self.root), remain_path, used_path)?
         } else {
             find_entry(Rc::clone(&self.current_entry), path.clone(), PathBuf::new())?
@@ -62,8 +63,8 @@ impl Manipulator {
             .get_immediate_entry().unwrap()
             .properties
             .absolute_path.clone();
-        let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).unwrap());
-        PathBuf::from(wispha::ROOT_DIR).join(raw.strip_prefix(root_dir).unwrap().to_path_buf())
+        let root_dir = PathBuf::from(env::var(ROOT_DIR_VAR).unwrap());
+        PathBuf::from(ROOT_DIR).join(raw.strip_prefix(root_dir).unwrap().to_path_buf())
     }
 
     pub fn current_list(&self) -> String {
@@ -106,9 +107,9 @@ impl Manipulator {
     }
 
     pub fn list_of_path(&self, path: &PathBuf) -> Result<String> {
-        let entry = if path.starts_with(wispha::ROOT_DIR) {
-            let remain_path = path.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
-            let used_path = PathBuf::from(wispha::ROOT_DIR);
+        let entry = if path.starts_with(ROOT_DIR) {
+            let remain_path = path.strip_prefix(ROOT_DIR).unwrap().to_path_buf();
+            let used_path = PathBuf::from(ROOT_DIR);
             find_entry(Rc::clone(&self.root), remain_path, used_path)?
         } else {
             find_entry(Rc::clone(&self.current_entry), path.clone(), PathBuf::new())?
@@ -138,9 +139,9 @@ fn actual_path(raw: &PathBuf, current_dir: &PathBuf) -> Result<PathBuf> {
         return Ok(raw.clone());
     }
 
-    if raw.starts_with(wispha::ROOT_DIR) {
-        let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).unwrap());
-        let relative_path = raw.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
+    if raw.starts_with(ROOT_DIR) {
+        let root_dir = PathBuf::from(env::var(ROOT_DIR_VAR).unwrap());
+        let relative_path = raw.strip_prefix(ROOT_DIR).unwrap().to_path_buf();
         return Ok(root_dir.join(relative_path));
     }
 

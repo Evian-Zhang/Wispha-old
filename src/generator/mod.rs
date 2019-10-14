@@ -6,6 +6,7 @@ use std::rc::{Rc, Weak};
 use std::cell::{RefCell, Ref};
 use std::ops::Add;
 use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
+use crate::strings::*;
 use ignore::{Walk, WalkBuilder, gitignore::{GitignoreBuilder, Gitignore}};
 
 pub mod error;
@@ -26,7 +27,7 @@ pub fn generate(path: &PathBuf, options: GeneratorOptions) -> Result<()> {
             generate_file_at_path_recursively(&path, &path, &get_ignored_files_from_root(path, &options.ignored_files)?, &options)?
         },
     };
-    let root_path = path.join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
+    let root_path = path.join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
     fs::write(&root_path, &root.to_file_string(0, &path)?)
         .or(Err(GeneratorError::FileCannotWrite(root_path.clone())))?;
     Ok(())
@@ -80,12 +81,12 @@ fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored
                 let mut sub_entry = generate_file_at_path_recursively(&entry.path(), root_dir, ignored_files, &options)?;
                 if (&entry.path()).is_dir() {
                     let absolute_path = sub_entry.properties.absolute_path
-                        .join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
+                        .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
                     fs::write(&absolute_path, &sub_entry.to_file_string(0, root_dir)?)
                         .or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
 
                     let relative_path = PathBuf::from(&sub_entry.properties.name)
-                        .join(PathBuf::from(&wispha::DEFAULT_FILE_NAME_STR));
+                        .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
 
                     let intermediate_entry = WisphaIntermediateEntry {
                         entry_file_path: relative_path,

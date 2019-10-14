@@ -4,6 +4,7 @@ mod generator;
 mod commandline;
 mod manipulator;
 mod config_reader;
+mod strings;
 
 use crate::commandline::{WisphaCommand, Subcommand, Generate, Look};
 use crate::generator::{error::GeneratorError, option::*};

@@ -6,6 +6,7 @@ use std::rc::{Rc, Weak};
 use std::fs;
 use std::env;
 use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
+use crate::strings::*;
 
 pub mod error;
 use error::{ParserErrorInfo, ParserError};
@@ -201,7 +202,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
-        env::set_var(wispha::ROOT_DIR_VAR, file_path.parent().unwrap().to_str().unwrap());
+        env::set_var(ROOT_DIR_VAR, file_path.parent().unwrap().to_str().unwrap());
         let result = self.parse_with_env_set(file_path);
         self.files.clear();
         result
@@ -292,7 +293,7 @@ impl Parser {
     fn build_wispha_entry_with_relative_path_from_properties(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let mut file_path_property = None;
         for property in &properties {
-            if property.header.raw_token().content == wispha::ENTRY_FILE_PATH_HEADER.to_string() {
+            if property.header.raw_token().content == ENTRY_FILE_PATH_HEADER.to_string() {
                 file_path_property = Some(property.clone());
             }
         }
@@ -360,7 +361,7 @@ impl Parser {
         for property in properties {
             immediate_entry.properties.file_path = property.header.raw_token().file_path.clone();
             match property.header.raw_token().content.as_str() {
-                wispha::ABSOLUTE_PATH_HEADER => {;
+                ABSOLUTE_PATH_HEADER => {;
                     if let Some(content_token) = self.get_content_token_from_body(property.body)? {
                         let raw = content_token.raw_token().content.trim().to_string();
                         let current_dir = content_token.raw_token().file_path.clone().parent().unwrap().to_path_buf();
@@ -369,14 +370,14 @@ impl Parser {
                         return Err(ParserError::EmptyBody(Rc::clone(&property.header)));
                     }
                 },
-                wispha::NAME_HEADER => {
+                NAME_HEADER => {
                     if let Some(content_token) = self.get_content_token_from_body(property.body)? {
                         immediate_entry.properties.name = content_token.raw_token().content.trim().to_string();
                     } else {
                         return Err(ParserError::EmptyBody(Rc::clone(&property.header)));
                     }
                 },
-                wispha::ENTRY_TYPE_HEADER => {
+                ENTRY_TYPE_HEADER => {
                     if let Some(content_token) = self.get_content_token_from_body(property.body)? {
                         immediate_entry.properties.entry_type = WisphaEntryType::from(content_token.raw_token().content.trim().to_string())
                             .ok_or(ParserError::UnrecognizedEntryFileType(Rc::clone(&content_token)))?;
@@ -384,7 +385,7 @@ impl Parser {
                         return Err(ParserError::EmptyBody(Rc::clone(&property.header)));
                     }
                 },
-                wispha::DESCRIPTION_HEADER => {
+                DESCRIPTION_HEADER => {
                     let content_tokens = self.get_multiline_content_tokens_from_body(property.body)?;
                     let mut content = String::new();
                     for token in &content_tokens {
@@ -396,7 +397,7 @@ impl Parser {
                     }
                     immediate_entry.properties.description = content;
                 },
-                wispha::SUB_ENTRIES_HEADER => {
+                SUB_ENTRIES_HEADER => {
                     let sub_entry = self.build_wispha_entry_with_relative_path(property.body, property.header.depth().unwrap() + 1)?;
                     immediate_entry.sub_entries.borrow_mut().push(Rc::clone(&sub_entry));
                 },
@@ -450,9 +451,9 @@ impl Parser {
             return Ok(raw);
         }
 
-        if raw.starts_with(wispha::ROOT_DIR) {
-            let root_dir = PathBuf::from(env::var(wispha::ROOT_DIR_VAR).or(Err(ParserError::EnvNotFound))?);
-            let relative_path = raw.strip_prefix(wispha::ROOT_DIR).unwrap().to_path_buf();
+        if raw.starts_with(ROOT_DIR) {
+            let root_dir = PathBuf::from(env::var(ROOT_DIR_VAR).or(Err(ParserError::EnvNotFound))?);
+            let relative_path = raw.strip_prefix(ROOT_DIR).unwrap().to_path_buf();
             return Ok(root_dir.join(relative_path));
         }
 

@@ -3,33 +3,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 
-const DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
-const DEFAULT_NAME: &str = "default name";
-const DEFAULT_DESCRIPTION: &str = "default description";
-const DEFAULT_PATH: &str = "default path";
-const DEFAULT_FILE_PATH: &str = "default file path";
-
-pub const DEFAULT_FILE_NAME_STR: &str = "LOOKME.wispha";
-pub const IGNORE_FILE_NAME_STR: &str = ".wisphaignore";
-
-pub const LINE_SEPARATOR: &str = "\n";
-
-pub const BEGIN_MARK: &str = "+";
-
-const DIRECTORY_TYPE: &str = "directory";
-const FILE_TYPE: &str = "file";
-const PROGRAM_ENTRY_TYPE: &str = "program entry";
-
-pub const ABSOLUTE_PATH_HEADER: &str = "absolute path";
-pub const NAME_HEADER: &str = "name";
-pub const ENTRY_TYPE_HEADER: &str = "entry type";
-pub const DESCRIPTION_HEADER: &str = "description";
-
-pub const ENTRY_FILE_PATH_HEADER: &str = "entry file path";
-pub const SUB_ENTRIES_HEADER: &str = "subentry";
-
-pub const ROOT_DIR: &str = "$ROOT_DIR";
-pub const ROOT_DIR_VAR: &str = "WISPHA_ROOT_DIR";
+use crate::strings::*;
 
 #[derive(Copy, Clone)]
 pub enum WisphaEntryType {
