@@ -55,10 +55,23 @@ impl WisphaEntryProperties {
                                          &self.description,
                                          LINE_SEPARATOR);
 
+        let mut customized_strings = vec![];
+        for (name, value) in &self.customized {
+            let customized_header_string = format!("{} [{}]", begin_mark, name);
+            let customized_string = format!("{}{}{}{}",
+                                            customized_header_string,
+                                            LINE_SEPARATOR,
+                                            value,
+                                            LINE_SEPARATOR);
+            customized_strings.push(customized_string);
+        }
+        let customized_string = customized_strings.join(LINE_SEPARATOR);
+
         return Ok([absolute_path_string,
             name_string,
             entry_type_string,
-            description_string].join(LINE_SEPARATOR));
+            description_string,
+            customized_string].join(LINE_SEPARATOR));
     }
 }
 

@@ -10,6 +10,7 @@ pub enum ManipulatorError {
     AbsolutePathNotSupported,
     BeyondDomain,
     EntryNotFound(PathBuf),
+    PropertyNotFound,
     Unexpected,
 }
 
@@ -34,6 +35,9 @@ impl Display for ManipulatorError {
             EntryNotFound(path) => {
                 format!("Cannot find entry in {}", path.to_str().unwrap())
             },
+            PropertyNotFound => {
+                format!("Cannot find this property.")
+            }
             Unexpected => {
                 format!("Unexpected error.")
             },

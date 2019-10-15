@@ -51,6 +51,7 @@ pub struct LookCommand {
 pub enum LookSubcommand {
     Cd(Cd),
     Ls(Ls),
+    Info(Info),
     Quit,
 }
 
@@ -66,6 +67,11 @@ pub struct Ls {
     #[structopt(short, long)]
     pub local: bool,
     pub path: Option<PathBuf>,
+}
+
+#[derive(StructOpt)]
+pub struct Info {
+    pub name: String,
 }
 
 enum ProgramState {
@@ -145,6 +151,10 @@ fn continue_program_with_error(manipulator: &mut Manipulator, bstdin: &mut BufRe
                 }
             }
         },
+
+        LookSubcommand::Info(info) => {
+            println!("{}", manipulator.info_of_property(&info.name)?);
+        }
 
         LookSubcommand::Quit => {
             return Ok(ProgramState::Quiting);

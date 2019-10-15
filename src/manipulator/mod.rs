@@ -128,6 +128,31 @@ impl Manipulator {
 
         Ok(names.join("\n"))
     }
+
+    pub fn info_of_property(&self, property: &String) -> Result<String> {
+        match property.as_str() {
+            ABSOLUTE_PATH_HEADER => {
+                return Ok(self.current_entry.borrow().get_immediate_entry().unwrap().properties.absolute_path.to_str().unwrap().to_string())
+            },
+            NAME_HEADER => {
+                return Ok(self.current_entry.borrow().get_immediate_entry().unwrap().properties.name.clone())
+
+            },
+            ENTRY_TYPE_HEADER => {
+                return Ok(self.current_entry.borrow().get_immediate_entry().unwrap().properties.entry_type.to_str().to_string())
+
+            },
+            DESCRIPTION_HEADER => {
+                return Ok(self.current_entry.borrow().get_immediate_entry().unwrap().properties.description.clone())
+            },
+            _ => {
+                if let Some(value) = self.current_entry.borrow().get_immediate_entry().unwrap().properties.customized.get(property) {
+                    return Ok(value.clone());
+                }
+            }
+        }
+        Err(ManipulatorError::PropertyNotFound)
+    }
 }
 
 fn push_into_entries(entry: &Rc<RefCell<WisphaFatEntry>>, entries: &mut HashMap<PathBuf, Rc<RefCell<WisphaFatEntry>>>) {
