@@ -44,7 +44,7 @@ fn get_ignored_files_from_root(root_dir: &PathBuf, ignored_files: &Vec<String>) 
 }
 
 // `path` is absolute
-fn generate_file_at_path_without_sub_and_sup(path: &PathBuf) -> Result<WisphaEntry> {
+fn generate_file_at_path_without_sub_and_sup(path: &PathBuf, options: &GeneratorOptions) -> Result<WisphaEntry> {
     let mut wispha_entry = WisphaEntry::default();
 
     wispha_entry.properties.name = path.file_name().ok_or(GeneratorError::NameNotDetermined(path.clone()))?
@@ -57,6 +57,13 @@ fn generate_file_at_path_without_sub_and_sup(path: &PathBuf) -> Result<WisphaEnt
         true => WisphaEntryType::Directory,
         false => WisphaEntryType::File,
     };
+
+    let properties = &options.properties;
+    for property in properties {
+        if let Some(default_value) = &property.default_value {
+            wispha_entry.properties.customized.insert(property.name.clone(), default_value.clone());
+        }
+    }
 
     Ok(wispha_entry)
 }
@@ -73,7 +80,7 @@ fn should_include_entry(entry: &DirEntry, wispha_ignore: &Gitignore, options: &G
 
 // `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative. Write all sub_entry to disk
 fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
-    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path)?;
+    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
@@ -106,7 +113,7 @@ fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored
 
 // `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Not write sub_entry to disk
 fn generate_file_at_path_flat(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
-    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path)?;
+    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;

@@ -2,6 +2,7 @@ use std::string::String;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use crate::strings::*;
 
@@ -19,6 +20,7 @@ pub struct WisphaEntryProperties {
     pub description: String, // the whitespace is not allowed at the begin and end
     pub absolute_path: PathBuf, // is absolute in memory, and starts with `$ROOT_DIR` when saved, can also be absolute or relative
     pub file_path: PathBuf, // the absolute path of the file where the entry is directly saved, i.e. not intermediate. Not saved in file
+    pub customized: HashMap<String, String>,
 }
 
 // like soft link
@@ -97,6 +99,7 @@ impl WisphaEntry {
             description: String::from(DEFAULT_DESCRIPTION),
             absolute_path: PathBuf::from(DEFAULT_PATH),
             file_path: PathBuf::from(DEFAULT_FILE_PATH),
+            customized: HashMap::new(),
         };
 
         let sup_entry: RefCell<Weak<RefCell<WisphaFatEntry>>> = RefCell::new(Weak::new());

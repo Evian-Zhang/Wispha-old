@@ -8,7 +8,7 @@ mod strings;
 
 use crate::commandline::{WisphaCommand, Subcommand, Generate, Look};
 use crate::generator::{error::GeneratorError, option::*};
-use crate::parser::{error::{ParserError, ParserErrorInfo}, *};
+use crate::parser::{error::{ParserError, ParserErrorInfo}, option::* ,*};
 use crate::manipulator::Manipulator;
 use crate::config_reader::error::ConfigError;
 
@@ -69,8 +69,13 @@ fn main_with_error() -> Result<(), MainError> {
             let path = &look.path;
             let actual_path = actual_path(&path)?;
             println!("Working on looking...");
+            let mut options = ParserOptions::default();
+            let config = config_reader::read_configs_in_dir(&actual_path)?;
+            if let Some(config) = config {
+                options.update_from_config(&config)?;
+            }
             let mut parser = Parser::new();
-            let root = parser.parse(&actual_path)?;
+            let root = parser.parse(&actual_path, options)?;
             let manipulator = Manipulator::new(&root, &root);
             println!("Looking ready!");
             commandline::continue_program(manipulator);
@@ -93,7 +98,8 @@ pub enum MainError {
     GeneratorError(GeneratorError),
     ParserError(ParserError),
     GeneratorOptionError(GeneratorOptionError),
-    ConfigError(ConfigError)
+    ConfigError(ConfigError),
+    ParserOptionError(ParserOptionError),
 }
 
 impl Error for MainError { }
@@ -117,6 +123,9 @@ impl Display for MainError {
             ConfigError(error) => {
                 format!("{}", error)
             },
+            ParserOptionError(error) => {
+                format!("{}", error)
+            }
         };
         write!(f, "{}", error_message)
     }
@@ -143,5 +152,11 @@ impl From<GeneratorOptionError> for MainError {
 impl From<ConfigError> for MainError {
     fn from(error: ConfigError) -> Self {
         MainError::ConfigError(error)
+    }
+}
+
+impl From<ParserOptionError> for MainError {
+    fn from(error: ParserOptionError) -> Self {
+        MainError::ParserOptionError(error)
     }
 }

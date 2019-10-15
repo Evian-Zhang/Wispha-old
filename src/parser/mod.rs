@@ -1,19 +1,24 @@
 use onig::*;
+
 use std::fmt::Write as FmtWrite;
 use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::fs;
 use std::env;
-use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
-use crate::strings::*;
-
-pub mod error;
-use error::{ParserErrorInfo, ParserError};
 use std::cell::{RefCell, RefMut};
 use std::string::ParseError;
 use std::borrow::Borrow;
 use std::collections::HashMap;
+
+use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
+use crate::strings::*;
+
+pub mod option;
+use option::*;
+
+pub mod error;
+use error::{ParserErrorInfo, ParserError};
 
 type Result<T> = std::result::Result<T, ParserError>;
 
@@ -201,19 +206,19 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    pub fn parse(&mut self, file_path: &Path, options: ParserOptions) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         env::set_var(ROOT_DIR_VAR, file_path.parent().unwrap().to_str().unwrap());
-        let result = self.parse_with_env_set(file_path);
+        let result = self.parse_with_env_set(file_path, &options);
         self.files.clear();
         result
     }
 
-    fn parse_with_env_set(&mut self, file_path: &Path) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    fn parse_with_env_set(&mut self, file_path: &Path, options: &ParserOptions) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let mut content = fs::read_to_string(&file_path)
             .or(Err(ParserError::FileCannotRead(file_path.to_path_buf())))?;
         let tokens = self.tokenize(content, file_path);
-        let mut root = self.build_wispha_entry_with_relative_path(tokens, 1)?;
-        root = self.resolve(Rc::clone(&root))?;
+        let mut root = self.build_wispha_entry_with_relative_path(tokens, 1, options)?;
+        root = self.resolve(Rc::clone(&root), options)?;
         self.files.insert(file_path.to_path_buf(), Rc::clone(&root));
         Ok(root)
     }
@@ -250,9 +255,9 @@ impl Parser {
         wispha_token
     }
 
-    fn build_wispha_entry_with_relative_path(&mut self, tokens: Vec<Rc<WisphaToken>>, depth: usize) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    fn build_wispha_entry_with_relative_path(&mut self, tokens: Vec<Rc<WisphaToken>>, depth: usize, options: &ParserOptions) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let properties = self.build_wispha_properties(tokens, depth)?;
-        self.build_wispha_entry_with_relative_path_from_properties(properties)
+        self.build_wispha_entry_with_relative_path_from_properties(properties, options)
     }
 
     fn build_wispha_properties(&mut self, tokens: Vec<Rc<WisphaToken>>, depth: usize) -> Result<Vec<WisphaRawProperty>> {
@@ -285,7 +290,7 @@ impl Parser {
         Ok(properties)
     }
 
-    fn build_wispha_entry_with_relative_path_from_properties(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    fn build_wispha_entry_with_relative_path_from_properties(&mut self, properties: Vec<WisphaRawProperty>, options: &ParserOptions) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let mut file_path_property = None;
         for property in &properties {
             if property.header.raw_token().content == ENTRY_FILE_PATH_HEADER.to_string() {
@@ -295,7 +300,7 @@ impl Parser {
         if let Some(file_path_property) = file_path_property {
             return self.build_wispha_intermediate_entry(file_path_property);
         } else {
-            return self.build_wispha_immediate_entry(properties);
+            return self.build_wispha_immediate_entry(properties, options);
         }
     }
 
@@ -351,11 +356,12 @@ impl Parser {
         }
     }
 
-    fn build_wispha_immediate_entry(&mut self, properties: Vec<WisphaRawProperty>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    fn build_wispha_immediate_entry(&mut self, properties: Vec<WisphaRawProperty>, options: &ParserOptions) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         let mut immediate_entry = WisphaEntry::default();
         for property in properties {
             immediate_entry.properties.file_path = property.header.raw_token().file_path.clone();
-            match property.header.raw_token().content.as_str() {
+            let header_str = property.header.raw_token().content.as_str();
+            match header_str {
                 ABSOLUTE_PATH_HEADER => {
                     if let Some(content_token) = self.get_content_token_from_body(property.body)? {
                         let raw = content_token.raw_token().content.trim().to_string();
@@ -393,10 +399,17 @@ impl Parser {
                     immediate_entry.properties.description = content;
                 },
                 SUB_ENTRIES_HEADER => {
-                    let sub_entry = self.build_wispha_entry_with_relative_path(property.body, property.header.depth().unwrap() + 1)?;
+                    let sub_entry = self.build_wispha_entry_with_relative_path(property.body, property.header.depth().unwrap() + 1, options)?;
                     immediate_entry.sub_entries.borrow_mut().push(Rc::clone(&sub_entry));
                 },
                 _ => {
+                    let properties = &options.properties;
+                    for property in properties {
+                        if property.name.as_str() == header_str {
+                            immediate_entry.properties.customized.insert(property.name.clone(), header_str.to_string());
+                            break;
+                        }
+                    }
                     continue;
                 }
             }
@@ -404,12 +417,12 @@ impl Parser {
         Ok(Rc::new(RefCell::new(WisphaFatEntry::Immediate(immediate_entry))))
     }
 
-    fn resolve(&mut self, entry: Rc<RefCell<WisphaFatEntry>>) -> Result<Rc<RefCell<WisphaFatEntry>>> {
+    fn resolve(&mut self, entry: Rc<RefCell<WisphaFatEntry>>, options: &ParserOptions) -> Result<Rc<RefCell<WisphaFatEntry>>> {
         match &mut *(*entry).borrow_mut() {
             WisphaFatEntry::Immediate(immediate_entry) => {
                 immediate_entry.sup_entry = RefCell::new(Weak::new());
                 for sub_entry in &mut *immediate_entry.sub_entries.borrow_mut() {
-                    *sub_entry = self.resolve(Rc::clone(sub_entry))?;
+                    *sub_entry = self.resolve(Rc::clone(sub_entry), options)?;
                     sub_entry.borrow_mut().get_immediate_entry_mut().unwrap().sup_entry = RefCell::new(Rc::downgrade(&entry));
                 }
                 Ok(Rc::clone(&entry))
@@ -420,7 +433,7 @@ impl Parser {
                 let entry = if let Some(entry) = self.files.get(&file_path) {
                     Rc::new((**entry).clone())
                 } else {
-                    self.parse_with_env_set(&file_path)?
+                    self.parse_with_env_set(&file_path, options)?
                 };
                 Ok(entry)
             }
