@@ -12,7 +12,6 @@ use crate::parser::{error::ParserError, option::* ,*};
 use crate::manipulator::Manipulator;
 use crate::config_reader::error::ConfigError;
 
-
 use structopt::StructOpt;
 use console::style;
 
@@ -22,6 +21,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::result::Result;
 
+// `raw`: relative or absolute. If cannot determine current directory, an error is raised
 fn actual_path(raw: &PathBuf) -> Result<PathBuf, MainError> {
     if raw.is_absolute() {
         return Ok(raw.clone());
@@ -32,32 +32,42 @@ fn actual_path(raw: &PathBuf) -> Result<PathBuf, MainError> {
 }
 
 fn main_with_error() -> Result<(), MainError> {
+    // get commandline arguments
     let wispha_command: WisphaCommand = WisphaCommand::from_args();
+
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
-            let mut options = GeneratorOptions::default();
-            options.update_from_commandline(generate)?;
             let path = &generate.path;
             let actual_path = actual_path(&path)?;
             println!("Generating...");
+
+            // get generator options from config and commandline
+            let mut options = GeneratorOptions::default();
             let config = config_reader::read_configs_in_dir(&actual_path)?;
             if let Some(config) = config {
                 options.update_from_config(&config)?;
             }
+            options.update_from_commandline(generate)?;
+
             generator::generate(&actual_path, options)?;
             println!("Successfully generate!");
         },
+
         Subcommand::Look(look) => {
             let path = &look.path;
             let actual_path = actual_path(&path)?;
             println!("Working on looking...");
+
+            // get parser options from config
             let mut options = ParserOptions::default();
             let config = config_reader::read_configs_in_dir(&actual_path)?;
             if let Some(config) = config {
                 options.update_from_config(&config)?;
             }
+
             let mut parser = Parser::new();
             let root = parser.parse(&actual_path, options)?;
+
             let manipulator = Manipulator::new(&root, &root);
             println!("Looking ready!");
             commandline::continue_program(manipulator);

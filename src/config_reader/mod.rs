@@ -29,19 +29,16 @@ pub struct PropertyConfig {
     pub default_value: Option<String>,
 }
 
-impl Config {
-
-}
-
 pub fn read_configs_in_dir(dir: &PathBuf) -> Result<Option<Config>> {
     let path = dir.join(CONFIG_FILE_NAME);
     read_configs_from_path(&path)
 }
 
+// If there is none or can't open, return Ok(None); If the toml deserialize fails, return Err
 pub fn read_configs_from_path(path: &PathBuf) -> Result<Option<Config>> {
     match fs::read_to_string(path) {
         Ok(content) => {
-            read_configs(content)
+            Ok(Some(read_configs(content)?))
         },
         Err(_) => {
             Ok(None)
@@ -49,13 +46,6 @@ pub fn read_configs_from_path(path: &PathBuf) -> Result<Option<Config>> {
     }
 }
 
-pub fn read_configs(content: String) -> Result<Option<Config>> {
-    match toml::from_str::<Config>(&content) {
-        Ok(config) => {
-            Ok(Some(config))
-        },
-        Err(error) => {
-            Err(ConfigError::DeserializeError(error))
-        },
-    }
+pub fn read_configs(content: String) -> Result<Config> {
+    toml::from_str::<Config>(&content).or_else(|error| Err(ConfigError::DeserializeError(error)))
 }

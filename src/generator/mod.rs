@@ -9,11 +9,13 @@ use crate::strings::*;
 use ignore::{gitignore::{GitignoreBuilder, Gitignore}};
 
 pub mod error;
+
 use error::GeneratorError;
 
 mod converter;
 
 pub mod option;
+
 use option::*;
 
 pub type Result<T> = std::result::Result<T, GeneratorError>;
@@ -23,10 +25,10 @@ pub fn generate(path: &PathBuf, options: GeneratorOptions) -> Result<()> {
     let root = match &options.layer {
         GenerateLayer::Flat => {
             generate_file_at_path_flat(&path, &path, &get_ignored_files_from_root(path, &options.ignored_files)?, &options)?
-        },
+        }
         GenerateLayer::Recursive => {
             generate_file_at_path_recursively(&path, &path, &get_ignored_files_from_root(path, &options.ignored_files)?, &options)?
-        },
+        }
     };
     let root_path = path.join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
     fs::write(&root_path, &root.to_file_string(0, &path)?)
@@ -34,7 +36,7 @@ pub fn generate(path: &PathBuf, options: GeneratorOptions) -> Result<()> {
     Ok(())
 }
 
-// from `root_dir` to find ignore file. `root_dir` is absolute.
+// read ignored patterns from GeneratorOptions to form a Gitignore instance
 fn get_ignored_files_from_root(root_dir: &PathBuf, ignored_files: &Vec<String>) -> Result<Gitignore> {
     let mut ignore_builder = GitignoreBuilder::new(root_dir);
     for ignored_file in ignored_files {
@@ -71,11 +73,13 @@ fn generate_file_at_path_without_sub_and_sup(path: &PathBuf, options: &Generator
 
 fn should_include_entry(entry: &DirEntry, wispha_ignore: &Gitignore, options: &GeneratorOptions) -> bool {
     if wispha_ignore.matched(&entry.path(), entry.path().is_dir()).is_ignore() {
-        return false
+        return false;
     }
+
     if entry.file_name().to_str().map(|s| s.starts_with(".")).unwrap_or(false) {
         return options.allow_hidden_files;
     }
+
     true
 }
 
