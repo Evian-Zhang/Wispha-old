@@ -1,16 +1,14 @@
-use std::cell::{RefCell, Ref};
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::{Weak, Rc};
-use std::pin::Pin;
-use std::path::{PathBuf, Component, Path};
+use std::rc::Rc;
+use std::path::{PathBuf, Component};
 use std::env;
 
-use crate::wispha::{self, WisphaEntryType, WisphaEntry, WisphaFatEntry, WisphaIntermediateEntry, WisphaEntryProperties};
+use crate::wispha::WisphaFatEntry;
+use crate::strings::*;
 
 pub mod error;
 use error::ManipulatorError;
-use crate::manipulator::error::ManipulatorError::AbsolutePathNotSupported;
-use crate::strings::*;
 
 type Result<T> = std::result::Result<T, ManipulatorError>;
 

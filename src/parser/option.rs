@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::{Display, Formatter, Debug};
 
-use crate::commandline::Look;
 use crate::config_reader::{Config, PropertyConfig};
 
 type Result<T> = std::result::Result<T, ParserOptionError>;

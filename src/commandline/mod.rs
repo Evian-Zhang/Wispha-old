@@ -4,7 +4,6 @@ use console::style;
 use std::path::PathBuf;
 use std::io::{self, Read, BufReader, Write, Stdin, Take, BufRead};
 use std::result::Result;
-use std::error::Error;
 
 use crate::manipulator::{Manipulator, error::ManipulatorError};
 use crate::commandline::input_parser::InputParser;

@@ -1,31 +1,23 @@
 use onig::*;
 
-use std::fmt::Write as FmtWrite;
-use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::fs;
 use std::env;
-use std::cell::{RefCell, RefMut};
-use std::string::ParseError;
+use std::cell::RefCell;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
+use crate::wispha::{WisphaEntry, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 use crate::strings::*;
 
 pub mod option;
 use option::*;
 
 pub mod error;
-use error::{ParserErrorInfo, ParserError};
+use error::ParserError;
 
 type Result<T> = std::result::Result<T, ParserError>;
-
-struct WisphaRawEntry {
-    header: String,
-    body: String,
-}
 
 #[derive(Clone, Debug)]
 pub struct WisphaRawToken {
@@ -88,10 +80,6 @@ impl WisphaToken {
         }
     }
 
-    fn line_number(&self) -> usize {
-        self.raw_token().line_number.clone()
-    }
-
     fn depth(&self) -> Option<usize> {
         match &self {
             WisphaToken::Header(_, depth) => {
@@ -133,17 +121,6 @@ impl WisphaToken {
             line_number: 0,
             file_path: PathBuf::new(),
         })
-    }
-
-    fn enum_type(&self) -> String {
-        match &self {
-            WisphaToken::Header(_, _) => {
-                String::from("Header")
-            },
-            WisphaToken::Body(_) => {
-                String::from("Body")
-            },
-        }
     }
 }
 
@@ -214,7 +191,7 @@ impl Parser {
     }
 
     fn parse_with_env_set(&mut self, file_path: &Path, options: &ParserOptions) -> Result<Rc<RefCell<WisphaFatEntry>>> {
-        let mut content = fs::read_to_string(&file_path)
+        let content = fs::read_to_string(&file_path)
             .or(Err(ParserError::FileCannotRead(file_path.to_path_buf())))?;
         let tokens = self.tokenize(content, file_path);
         let mut root = self.build_wispha_entry_with_relative_path(tokens, 1, options)?;
@@ -223,7 +200,7 @@ impl Parser {
         Ok(root)
     }
 
-    fn tokenize(&mut self, mut content: String, file_path: &Path) -> Vec<Rc<WisphaToken>> {
+    fn tokenize(&mut self, content: String, file_path: &Path) -> Vec<Rc<WisphaToken>> {
         let mut tokens = Vec::new();
         for (line_index, line_content) in content.lines().enumerate() {
             let token = self.parse_line(line_content.to_string(), line_index + 1, file_path);
@@ -233,7 +210,7 @@ impl Parser {
     }
 
     // `line_number` starts at 1
-    fn parse_line(&self, mut line_content: String, line_number: usize, file_path: &Path) -> WisphaToken {
+    fn parse_line(&self, line_content: String, line_number: usize, file_path: &Path) -> WisphaToken {
         let header_pattern = r#"^[ \f\t\v]*(\++)[ \f\t\v]*\[(.+?)][ \f\t\v]*$"#;
         let header_regex = Regex::new(header_pattern).unwrap();
         let wispha_token = if let Some(capture) = header_regex.captures(&line_content) {
@@ -315,7 +292,7 @@ impl Parser {
             token_index += 1;
         }
         if let Some(token) = body.get(token_index) {
-            if let WisphaToken::Body(raw_token) = token.borrow() {
+            if let WisphaToken::Body(_) = token.borrow() {
                 content_token = Some(Rc::clone(token));
                 token_index += 1;
             }

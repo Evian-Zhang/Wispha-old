@@ -6,9 +6,9 @@ mod manipulator;
 mod config_reader;
 mod strings;
 
-use crate::commandline::{WisphaCommand, Subcommand, Generate, Look};
+use crate::commandline::{WisphaCommand, Subcommand};
 use crate::generator::{error::GeneratorError, option::*};
-use crate::parser::{error::{ParserError, ParserErrorInfo}, option::* ,*};
+use crate::parser::{error::ParserError, option::* ,*};
 use crate::manipulator::Manipulator;
 use crate::config_reader::error::ConfigError;
 
@@ -17,13 +17,10 @@ use structopt::StructOpt;
 use console::style;
 
 use std::{env, fmt};
-use std::path::{PathBuf, Path};
-use std::fs;
-use std::io::{self, Read};
+use std::path::PathBuf;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::result::Result;
-use std::boxed::Box;
 
 fn actual_path(raw: &PathBuf) -> Result<PathBuf, MainError> {
     if raw.is_absolute() {
@@ -32,21 +29,6 @@ fn actual_path(raw: &PathBuf) -> Result<PathBuf, MainError> {
 
     let current_dir = env::current_dir().or(Err(MainError::DirectoryNotDetermined))?;
     Ok(current_dir.join(raw))
-}
-
-fn deal_with_generator_error(generator_error: &GeneratorError) {
-    eprintln!("{}", style("error").red());
-    eprintln!("{}", generator_error);
-}
-
-fn deal_with_parser_error(parser_error: &ParserError) {
-    eprintln!("{}", style("error").red());
-    eprintln!("{}", parser_error);
-}
-
-fn deal_with_config_error(config_error: &ConfigError) {
-    eprintln!("{}", style("error").red());
-    eprintln!("{}", config_error);
 }
 
 fn main_with_error() -> Result<(), MainError> {

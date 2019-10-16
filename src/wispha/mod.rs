@@ -1,5 +1,5 @@
 use std::string::String;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -116,7 +116,7 @@ impl WisphaEntry {
 
 impl Clone for WisphaEntry {
     fn clone(&self) -> Self {
-        let mut cloned = WisphaEntry {
+        let cloned = WisphaEntry {
             properties: self.properties.clone(),
             sup_entry: self.sup_entry.clone(),
             sub_entries: RefCell::new(Vec::new()),

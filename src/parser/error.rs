@@ -4,13 +4,7 @@ use std::fmt::{Display, Formatter, Debug};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::wispha::WisphaEntryType;
 use crate::parser::*;
-
-pub struct ParserErrorInfo {
-    pub path: PathBuf,
-    pub property: Option<String>,
-}
 
 #[derive(Debug)]
 pub enum ParserError {

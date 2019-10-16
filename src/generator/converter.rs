@@ -1,12 +1,9 @@
-use std::env;
-use std::fs::{self, DirEntry};
-use std::path::{Path, PathBuf};
-use std::ops::Add;
+use std::path::PathBuf;
 use std::fmt::Write as FmtWrite;
-use std::io::Write as IoWrite;
 use std::rc::Rc;
-use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
-use crate::generator::{self, error::GeneratorError};
+
+use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaFatEntry};
+use crate::generator::error::GeneratorError;
 use crate::strings::*;
 
 type Result<T> = std::result::Result<T, GeneratorError>;
@@ -16,7 +13,7 @@ impl WisphaEntryProperties {
         let mut begin_mark = String::new();
         let mut counter = 0;
         while counter <= depth {
-            write!(&mut begin_mark, "{}", BEGIN_MARK).or(Err(GeneratorError::Unexpected));
+            write!(&mut begin_mark, "{}", BEGIN_MARK).or(Err(GeneratorError::Unexpected))?;
             counter += 1;
         }
 
@@ -80,7 +77,7 @@ impl WisphaEntry {
         let mut begin_mark = String::new();
         let mut counter = 0;
         while counter <= depth {
-            write!(&mut begin_mark, "{}", BEGIN_MARK).or(Err(GeneratorError::Unexpected));
+            write!(&mut begin_mark, "{}", BEGIN_MARK).or(Err(GeneratorError::Unexpected))?;
             counter += 1;
         }
 
@@ -111,10 +108,9 @@ impl WisphaEntry {
             sub_entry_strings.push(sub_entry_string);
         }
         if sub_entry_strings.len() > 0 {
-            return Ok([properties_string, sub_entry_strings.join(LINE_SEPARATOR)].join(LINE_SEPARATOR));
+            Ok([properties_string, sub_entry_strings.join(LINE_SEPARATOR)].join(LINE_SEPARATOR))
         } else {
-            return Ok(properties_string);
+            Ok(properties_string)
         }
-        Err(GeneratorError::Unexpected)
     }
 }

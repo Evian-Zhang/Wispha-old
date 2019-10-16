@@ -1,17 +1,18 @@
-use std::env;
 use std::fs::{self, DirEntry};
-use std::path::{Path, PathBuf};
-use std::io;
-use std::rc::{Rc, Weak};
-use std::cell::{RefCell, Ref};
-use std::ops::Add;
-use crate::wispha::{self, WisphaEntry, WisphaEntryProperties, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::cell::RefCell;
+
+use crate::wispha::{WisphaEntry, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 use crate::strings::*;
-use ignore::{Walk, WalkBuilder, gitignore::{GitignoreBuilder, Gitignore}};
+
+use ignore::{gitignore::{GitignoreBuilder, Gitignore}};
 
 pub mod error;
 use error::GeneratorError;
+
 mod converter;
+
 pub mod option;
 use option::*;
 
@@ -80,12 +81,12 @@ fn should_include_entry(entry: &DirEntry, wispha_ignore: &Gitignore, options: &G
 
 // `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative. Write all sub_entry to disk
 fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
-    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
+    let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
             if should_include_entry(&entry, ignored_files, options) {
-                let mut sub_entry = generate_file_at_path_recursively(&entry.path(), root_dir, ignored_files, &options)?;
+                let sub_entry = generate_file_at_path_recursively(&entry.path(), root_dir, ignored_files, &options)?;
                 if (&entry.path()).is_dir() {
                     let absolute_path = sub_entry.properties.absolute_path
                         .join(PathBuf::from(&DEFAULT_FILE_NAME_STR));
@@ -113,12 +114,12 @@ fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored
 
 // `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Not write sub_entry to disk
 fn generate_file_at_path_flat(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
-    let mut wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
+    let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
     if path.is_dir() {
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
             if should_include_entry(&entry, ignored_files, options) {
-                let mut sub_entry = generate_file_at_path_flat(&entry.path(), root_dir, ignored_files, &options)?;
+                let sub_entry = generate_file_at_path_flat(&entry.path(), root_dir, ignored_files, &options)?;
                 wispha_entry.sub_entries.borrow_mut()
                     .push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(sub_entry))));
             }

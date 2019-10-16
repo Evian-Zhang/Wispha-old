@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Display, Formatter, Debug};
-use std::path::PathBuf;
+
 use toml;
 
 #[derive(Debug)]
