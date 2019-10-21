@@ -13,3 +13,4 @@ ignore = "*"
 console = "*"
 toml = "*"
 serde = { version = "*", features = ["derive"] }
+git2 = "*"
