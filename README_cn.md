@@ -1,6 +1,6 @@
 # Wispha
 
-Wispha是一个使用Rust语言编写的项目文件管理工具。面对复杂的项目文件结构，Wispha可以高效地生成`LOOKME.wispha`来存储文件之间的结构层次和每个文件的描述，也可以通过读取项目的`LOOKME.wispha`文件展示项目的文件层次及相关信息。
+`Wispha`是一个使用Rust语言编写的项目文件管理工具。面对复杂的项目文件结构，`Wispha`可以高效地生成`LOOKME.wispha`来存储文件之间的结构层次和每个文件的描述，也可以通过读取项目的`LOOKME.wispha`文件方便地展示项目的文件层次及相关信息。
 
 ## `.wispha`格式
 
@@ -152,7 +152,7 @@ path2
 
 如果想要根据绝对路径切换主体，则可加入`-l`选项，即
 
-```
+```bash
 wispha@some/path > cd -l path/to/destination
 ```
 
@@ -167,3 +167,57 @@ wispha@some/path > ls
 会显示当前主体的子主体。
 
 此外，`ls`后还可以加入路径，即查看对应路径下的子主体。关于路径的要求和`cd`类似，也可以加入`-l`选项强制本地路径。
+
+#### 查看当前主体属性
+
+对于属性，我们可以通过`info`命令查看。如想查看当前主体的`description`属性, 可以使用命令
+
+```bash
+wispha@some/path > info description
+```
+
+值得注意的是，对于名称中带有空格的属性，如`entry type`, 需要在命令中加入引号，如：
+
+```bash
+wispha@some/path > info "entry type"
+```
+
+### 高级使用
+
+可以在项目根目录下新建名为`.wispharc`的配置文件用于配置项目。`.wispharc`配置文件使用[TOML](https://github.com/toml-lang/toml)语法。一份常用的`.wispharc`文件内容如下：
+
+```toml
+[generate]
+ignored_files = [
+".DS_Store",
+"*.wispha",
+".wishparc"
+]
+allow_hidden_files = false
+
+[[properties]]
+name = "Author"
+default_value = "Me"
+
+[[properties]]
+name = "Committer"
+```
+
+在`generate`表中，支持的键值对包括：
+
+* `ignored_files`<br />值为数组。可以向`ignored_files`键对应的数组中添加需要在生成`LOOKME.wispha`时忽略的文件名。这里的文件名支持[gitignore](https://git-scm.com/docs/gitignore)中文件名的格式，即`*.wispha`匹配了所有以`.wispha`为扩展名的文件。
+* `allow_hidden_files`<br />值为`true`或`false`. 如果值设置为`true`, 则在生成`LOOKME.wispha`文件时会包括所有以`.`开头的隐藏文件。此值默认为`false`.
+
+在`properties`表列表中，每一个表包含一个`name`和`default_value`组成的键值对，其中`default_value`是可选的。当我们不满足于内置的属性时，可以向配置文件中添加新的属性名。如果使用了上文中的配置文件，那么我们就可以在`LOOKME.wispha`中加入
+
+```
++ [Author]
+Evian Zhang
+
++ [Committer]
+Evian Zhang
+```
+
+同时也可以在交互模式中使用`info Author`等命令查看。在没有配置文件的情况下，`Wispha`会默认忽略这几个属性。
+
+此外，如果一个`properties`中拥有`default_value`键值对，那么使用`Wispha generate`命令时会在`LOOKME.wispha`中加入其所对应的默认值。
