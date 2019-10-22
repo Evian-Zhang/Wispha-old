@@ -7,7 +7,7 @@
 `.wispha`文件采用层次化的文法记录文件信息。一个标准的`LOOKME.wispha`文件内容如下：
 
 ```
-+ [absolute path]
++ [file path]
 $ROOT_DIR/
 
 + [name]
@@ -20,7 +20,7 @@ directory
 An example test directory to display directory type
 
 + [subentry]
-++ [absolute path]
+++ [file path]
 $ROOT_DIR/test1.cpp
 
 ++ [name]
@@ -33,7 +33,7 @@ file
 A .cpp file to display file type
 
 + [subentry]
-++ [absolute path]
+++ [file path]
 test2.rs
 
 ++ [name]
@@ -43,7 +43,7 @@ test2.rs
 file
 
 ++ [description]
-A .rs file to show relative absolute path
+A .rs file to show relative file path
 
 + [subentry]
 ++ [entry file path]
@@ -67,7 +67,7 @@ wispha_test
 
 ```
 + [subentry]
-++ [absolute path]
+++ [file path]
 $ROOT_DIR/test1.cpp
 
 ++ [name]
@@ -84,7 +84,7 @@ A .cpp file to display file type
 
 * 除了`description`和`subentry`以外，其他属性的内容都只允许出现一行非空白行。其余空白字符将被忽略。
 * 对于`desciption`属性，其内容的所有字符都有效。
-* 对于`path`属性，其内容可以是绝对路径，相对路径，或是以`$ROOT_DIR`开头的路径。当`Wispha`程序分析到该文件时，会以最初调用该指令时传入的路径作为`$ROOT_DIR`.
+* 对于`file path`属性，其内容可以是绝对路径，相对路径，或是以`$ROOT_DIR`开头的路径。当`Wispha`程序分析到该文件时，会以最初调用该指令时传入的路径作为`$ROOT_DIR`.
 * 对于`entry file path`属性，其内容为另一个`.wispha`文件的路径。当`Wispha`程序分析到这个属性时，会取指定路径分析那个文件作为该属性对应的文件。该属性只能出现在`subentry`属性的内容中或者文件的第一层属性中。一旦出现，则其他同层次的属性均被忽略。
 * 对于`entry type`属性，其内容只可以为`directory`或`file`. 这个内容只是标记其在文件系统中的事实情况，`file`类型的主体依然可以有`subentry`.
 
@@ -139,7 +139,7 @@ wispha@some/path > cd path/to/destination
 
 ```
 + [subentry]
-++ [absolute path]
+++ [file path]
 $ROOT_DIR/path1
 
 ++ [name]

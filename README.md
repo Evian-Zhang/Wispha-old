@@ -10,7 +10,7 @@ Other versions:
 `.wispha` format uses a hierarchical grammar to store information. A standard `LOOKME.wispha` file is given as follow:
 
 ```
-+ [absolute path]
++ [file path]
 $ROOT_DIR/
 
 + [name]
@@ -23,7 +23,7 @@ directory
 An example test directory to display directory type
 
 + [subentry]
-++ [absolute path]
+++ [file path]
 $ROOT_DIR/test1.cpp
 
 ++ [name]
@@ -36,7 +36,7 @@ file
 A .cpp file to display file type
 
 + [subentry]
-++ [absolute path]
+++ [file path]
 test2.rs
 
 ++ [name]
@@ -46,7 +46,7 @@ test2.rs
 file
 
 ++ [description]
-A .rs file to show relative absolute path
+A .rs file to show relative file path
 
 + [subentry]
 ++ [entry file path]
@@ -70,7 +70,7 @@ The layer of a property can be any positive integer. The first property of a fil
 
 ```
 + [subentry]
-++ [absolute path]
+++ [file path]
 $ROOT_DIR/test1.cpp
 
 ++ [name]
@@ -87,7 +87,7 @@ A .cpp file to display file type
 
 * The body of all properties except `description` and `subentry` should only consists of a single non-blank line, other whitespace shall be ignored.
 * All characters in the body of `desciption` is valid, including whitespace.
-* The body of `path` can be absolute, relative, or start with `$ROOT_DIR`. When `Wispha` analyzes this part, the original path passed in when calling `Wispha` in commandline replaces the `$ROOT_DIR`.
+* The body of `file path` can be absolute, relative, or start with `$ROOT_DIR`. When `Wispha` analyzes this part, the original path passed in when calling `Wispha` in commandline replaces the `$ROOT_DIR`.
 * The body of `entry file path` is a path to another `.wispha` file. When `Wispha` analyzes this part, it will go to that path to analyze that file, and turn the output entry to the subentry in here. This property can only in the body of `subentry` property, or in the first layer of a file. Once the property is found, other properties in the same layer is omitted.
 * The body of `entry type` can only be `directory` or `file`. This content merely marks the type in file system, the entry of type `file` can also have `subentry` property.
 
@@ -142,7 +142,7 @@ wispha@some/path > cd path/to/destination
 
 ```
 + [subentry]
-++ [absolute path]
+++ [file path]
 $ROOT_DIR/path1
 
 ++ [name]
@@ -153,7 +153,7 @@ When current entry is `$ROOT_DIR`, if we type `cd path1`, it will fail. If we ty
 
 We support using relative path or path starting with `$ROOT_DIR` in the parameter of `cd`, and using `..` to access super directory is also supported.
 
-If we want to access entry via absolute path, we can add `-l` option, like:
+If we want to access entry via file path, we can add `-l` option, like:
 
 ```bash
 wispha@some/path > cd -l path/to/destination
@@ -167,7 +167,7 @@ wispha@some/path > ls
 
 This command can list all subentries of current entry.
 
-Moreover, we can add a path after `ls`, which can list all subentries of the entry corresponding to the path. And the path is similar to `cd`, which could add `-l` option to force absolute path.
+Moreover, we can add a path after `ls`, which can list all subentries of the entry corresponding to the path. And the path is similar to `cd`, which could add `-l` option to force file path.
 
 #### Inspect property
 

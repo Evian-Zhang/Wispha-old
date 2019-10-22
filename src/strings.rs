@@ -16,7 +16,7 @@ pub const DIRECTORY_TYPE: &str = "directory";
 pub const FILE_TYPE: &str = "file";
 pub const PROGRAM_ENTRY_TYPE: &str = "program entry";
 
-pub const ABSOLUTE_PATH_HEADER: &str = "absolute path";
+pub const ABSOLUTE_PATH_HEADER: &str = "file path";
 pub const NAME_HEADER: &str = "name";
 pub const ENTRY_TYPE_HEADER: &str = "entry type";
 pub const DESCRIPTION_HEADER: &str = "description";
