@@ -1,6 +1,6 @@
 # Wispha
 
-`Wispha` is a project file management tool written in Rust. In a complex project consisting of enormous files and directories, `Wispha` can produce `LOOKME.wispha` efficiently to store hierarchical information and descriptions of each file. `Wispha` can also make it easier to read information of relationship between files.
+`Wispha` is a project file management tool written in Rust. In a complex project consisting of enormous files and directories, `Wispha` can produce `wispha` file efficiently to store hierarchical information and descriptions of each file. `Wispha` can also make it easier to read information of relationship between files.
 
 Other versions:
 
@@ -50,7 +50,7 @@ A .rs file to show relative file path
 
 + [subentry]
 ++ [entry file path]
-$ROOT_DIR/zjd/LOOKME.wispha
+$ROOT_DIR/subdir/LOOKHIM.wispha
 ```
 
 `.wispha` file consists of properties with hierarchical information. Each property has a header and a body. For example:
@@ -208,6 +208,7 @@ Supported key-value pairs of `generate` table are:
 
 * `ignored_files`<br />Value is of array type. We can add file names which we want to be ignored when generating `LOOKME.wispha` file. The file name can be patterns described in [gitignore](https://git-scm.com/docs/gitignore), namely, `*.wispha` matches all file whose extension is `wispha`.
 * `allow_hidden_files`<br />Value is of boolean type. If its value is `true`, then when generating `LOOKME.wispha` file, all hidden files starts with `.` is also included. This value is `false` by default.
+* `wispha_name`<br />Value is of string type. Used to specify the name of `wispha` file. `LOOKME.wispha` by default.
 
 In the array of tables `properties`, each table consists of key-value pairs `name` and `default_value`, where `default_value` is optional. If we are not satisfied with built-in properties, we can add our customized properties such as:
 

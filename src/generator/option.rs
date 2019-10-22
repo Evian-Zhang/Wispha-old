@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter, Debug};
 
 use crate::commandline::Generate;
 use crate::config_reader::{Config, PropertyConfig};
+use crate::strings::*;
 
 type Result<T> = std::result::Result<T, GeneratorOptionError>;
 
@@ -12,6 +13,7 @@ pub struct GeneratorOptions {
     pub allow_hidden_files: bool,
     pub properties: Vec<PropertyConfig>,
     pub ignored_files: Vec<String>,
+    pub wispha_name: String,
 }
 
 pub enum GenerateLayer {
@@ -26,6 +28,7 @@ impl GeneratorOptions {
             allow_hidden_files: false,
             properties: vec![],
             ignored_files: vec![],
+            wispha_name: DEFAULT_FILE_NAME_STR.to_string(),
         }
     }
 
@@ -50,6 +53,9 @@ impl GeneratorOptions {
             }
             if let Some(ignored_files) = &generate_config.ignored_files {
                 self.ignored_files = ignored_files.clone();
+            }
+            if let Some(wispha_name) = &generate_config.wispha_name {
+                self.wispha_name = wispha_name.clone();
             }
         }
         if let Some(properties) = &config.properties {

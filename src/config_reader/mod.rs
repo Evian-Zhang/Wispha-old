@@ -21,6 +21,7 @@ pub struct Config {
 pub struct GenerateConfig {
     pub allow_hidden_files: Option<bool>,
     pub ignored_files: Option<Vec<String>>,
+    pub wispha_name: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]

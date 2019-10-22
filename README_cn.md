@@ -1,6 +1,6 @@
 # Wispha
 
-`Wispha`是一个使用Rust语言编写的项目文件管理工具。面对复杂的项目文件结构，`Wispha`可以高效地生成`LOOKME.wispha`来存储文件之间的结构层次和每个文件的描述，也可以通过读取项目的`LOOKME.wispha`文件方便地展示项目的文件层次及相关信息。
+`Wispha`是一个使用Rust语言编写的项目文件管理工具。面对复杂的项目文件结构，`Wispha`可以高效地生成`wispha`文件格式来存储文件之间的结构层次和每个文件的描述，也可以通过读取项目的`wispha`文件格式以方便地展示项目的文件层次及相关信息。
 
 ## `.wispha`格式
 
@@ -47,7 +47,7 @@ A .rs file to show relative file path
 
 + [subentry]
 ++ [entry file path]
-$ROOT_DIR/zjd/LOOKME.wispha
+$ROOT_DIR/subdir/LOOKHIM.wispha
 ```
 
 `.wispha`文件由层次化的属性组成。每个属性有头和内容。如
@@ -207,6 +207,7 @@ name = "Committer"
 
 * `ignored_files`<br />值为数组。可以向`ignored_files`键对应的数组中添加需要在生成`LOOKME.wispha`时忽略的文件名。这里的文件名支持[gitignore](https://git-scm.com/docs/gitignore)中文件名的格式，即`*.wispha`匹配了所有以`.wispha`为扩展名的文件。
 * `allow_hidden_files`<br />值为`true`或`false`. 如果值设置为`true`, 则在生成`LOOKME.wispha`文件时会包括所有以`.`开头的隐藏文件。此值默认为`false`.
+* `wispha_name`<br />值为字符串。用于指定生成的`wispha`文件的默认名称。默认为`LOOKME.wispha`
 
 在`properties`表列表中，每一个表包含一个`name`和`default_value`组成的键值对，其中`default_value`是可选的。当我们不满足于内置的属性时，可以向配置文件中添加新的属性名。如果使用了上文中的配置文件，那么我们就可以在`LOOKME.wispha`中加入
 

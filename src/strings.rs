@@ -27,4 +27,4 @@ pub const SUB_ENTRIES_HEADER: &str = "subentry";
 pub const ROOT_DIR: &str = "$ROOT_DIR";
 pub const ROOT_DIR_VAR: &str = "WISPHA_ROOT_DIR";
 
-pub const CONFIG_FILE_NAME: &str = ".wispharc.toml";
+pub const CONFIG_FILE_NAME: &str = ".wispharc";
