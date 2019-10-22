@@ -225,7 +225,7 @@ impl Parser {
                     if content_tokens.len() > 0 {
                         content.pop();
                     }
-                    immediate_entry.properties.description = content;
+                    immediate_entry.properties.description = Some(content);
                 },
                 SUB_ENTRIES_HEADER => {
                     let sub_entry = self.build_wispha_entry_with_relative_path(property.body, property.header.depth().unwrap() + 1, options)?;

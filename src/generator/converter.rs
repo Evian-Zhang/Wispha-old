@@ -17,6 +17,8 @@ impl WisphaEntryProperties {
             counter += 1;
         }
 
+        let mut headers = vec![];
+
         let absolute_path_header_string = format!("{} [{}]", begin_mark, ABSOLUTE_PATH_HEADER);
         let relative_path = self.absolute_path.clone()
             .strip_prefix(root_dir).or(Err(GeneratorError::Unexpected))?
@@ -30,6 +32,7 @@ impl WisphaEntryProperties {
                                            LINE_SEPARATOR,
                                            dir_absolute_path_str,
                                            LINE_SEPARATOR);
+        headers.push(absolute_path_string);
 
         let name_header_string = format!("{} [{}]", begin_mark, NAME_HEADER);
         let name_string = format!("{}{}{}{}",
@@ -37,6 +40,7 @@ impl WisphaEntryProperties {
                                   LINE_SEPARATOR,
                                   &self.name,
                                   LINE_SEPARATOR);
+        headers.push(name_string);
 
         let entry_type_header_string = format!("{} [{}]", begin_mark, ENTRY_TYPE_HEADER);
         let entry_type_string = format!("{}{}{}{}",
@@ -44,13 +48,17 @@ impl WisphaEntryProperties {
                                         LINE_SEPARATOR,
                                         &self.entry_type.to_str(),
                                         LINE_SEPARATOR);
+        headers.push(entry_type_string);
 
-        let description_header_string = format!("{} [{}]", begin_mark, DESCRIPTION_HEADER);
-        let description_string = format!("{}{}{}{}",
-                                         description_header_string,
-                                         LINE_SEPARATOR,
-                                         &self.description,
-                                         LINE_SEPARATOR);
+        if let Some(description) = &self.description {
+            let description_header_string = format!("{} [{}]", begin_mark, DESCRIPTION_HEADER);
+            let description_string = format!("{}{}{}{}",
+                                             description_header_string,
+                                             LINE_SEPARATOR,
+                                             description,
+                                             LINE_SEPARATOR);
+            headers.push(description_string);
+        }
 
         let mut customized_strings = vec![];
         for (name, value) in &self.customized {
@@ -63,12 +71,9 @@ impl WisphaEntryProperties {
             customized_strings.push(customized_string);
         }
         let customized_string = customized_strings.join(LINE_SEPARATOR);
+        headers.push(customized_string);
 
-        return Ok([absolute_path_string,
-            name_string,
-            entry_type_string,
-            description_string,
-            customized_string].join(LINE_SEPARATOR));
+        return Ok(headers.join(LINE_SEPARATOR));
     }
 }
 

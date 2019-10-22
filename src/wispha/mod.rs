@@ -17,7 +17,7 @@ pub enum WisphaEntryType {
 pub struct WisphaEntryProperties {
     pub entry_type: WisphaEntryType,
     pub name: String,
-    pub description: String, // the whitespace is not allowed at the begin and end
+    pub description: Option<String>, // the whitespace is not allowed at the begin and end
     pub absolute_path: PathBuf, // is absolute in memory, and starts with `$ROOT_DIR` when saved, can also be absolute or relative
     pub file_path: PathBuf, // the absolute path of the file where the entry is directly saved, i.e. not intermediate. Not saved in file
     pub customized: HashMap<String, String>,
@@ -96,7 +96,7 @@ impl WisphaEntry {
         let properties = WisphaEntryProperties {
             entry_type: DEFAULT_ENTRY_TYPE,
             name: String::from(DEFAULT_NAME),
-            description: String::from(DEFAULT_DESCRIPTION),
+            description: None,
             absolute_path: PathBuf::from(DEFAULT_PATH),
             file_path: PathBuf::from(DEFAULT_FILE_PATH),
             customized: HashMap::new(),

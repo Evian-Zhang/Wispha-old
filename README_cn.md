@@ -80,6 +80,11 @@ file
 A .cpp file to display file type
 ```
 
+一个文件第一层必须包含的属性头有：
+
+* 若包含`entry file path`, 则其他属性头将被忽略
+* 若不含`entry file path`, 则需包含`file path`, `name`, `entry type`. `desciption`和`subentry`属性头可选。
+
 ### 属性内容
 
 * 除了`description`和`subentry`以外，其他属性的内容都只允许出现一行非空白行。其余空白字符将被忽略。

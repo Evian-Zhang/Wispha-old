@@ -2,7 +2,6 @@ use crate::wispha::WisphaEntryType;
 
 pub const DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
 pub const DEFAULT_NAME: &str = "default name";
-pub const DEFAULT_DESCRIPTION: &str = "default description";
 pub const DEFAULT_PATH: &str = "default path";
 pub const DEFAULT_FILE_PATH: &str = "default file path";
 

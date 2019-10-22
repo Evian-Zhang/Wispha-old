@@ -83,6 +83,11 @@ file
 A .cpp file to display file type
 ```
 
+The first layer of file must contain:
+
+* if contains `entry file path`, other properties will be ignored
+* if not contain `entry file path`, must contain `file path`, `name`, `entry type`. `description` and `subentry` are optional.
+
 ### Property body
 
 * The body of all properties except `description` and `subentry` should only consists of a single non-blank line, other whitespace shall be ignored.
