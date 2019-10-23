@@ -37,19 +37,22 @@ fn main_with_error() -> Result<(), MainError> {
 
     match &wispha_command.subcommand {
         Subcommand::Generate(generate) => {
-            let path = &generate.path;
-            let actual_path = actual_path(&path)?;
+            let path = if let Some(path) = &generate.path {
+                actual_path(&path)?
+            } else {
+                env::current_dir().or(Err(MainError::DirectoryNotDetermined))?
+            };
             println!("Generating...");
 
             // get generator options from config and commandline
             let mut options = GeneratorOptions::default();
-            let config = config_reader::read_configs_in_dir(&actual_path)?;
+            let config = config_reader::read_configs_in_dir(&path)?;
             if let Some(config) = config {
                 options.update_from_config(&config)?;
             }
             options.update_from_commandline(generate)?;
 
-            generator::generate(&actual_path, options)?;
+            generator::generate(&path, options)?;
             println!("Successfully generate!");
         },
 

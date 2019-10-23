@@ -31,7 +31,7 @@ pub struct Generate {
     pub recursively: bool,
     #[structopt(short, long)]
     pub all: bool,
-    pub path: PathBuf,
+    pub path: Option<PathBuf>,
 }
 
 #[derive(StructOpt)]
