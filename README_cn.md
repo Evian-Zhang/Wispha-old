@@ -187,6 +187,24 @@ wispha@some/path > info description
 wispha@some/path > info "entry type"
 ```
 
+### 状态查看
+
+对于指定的`.wispha`文件，其路径为`path/to/LOOKME.wispha`, 可使用命令
+
+```bash
+Wispha state path/to/LOOKME.wispha
+```
+
+查看以`path/to`为根目录的项目中未录入在`.wispha`文件中的文件。`.wispharc`中`generate`表中的`ignored_files`和`allow_hidden_files`键值对对此也有效。
+
+此外，可以在命令中加入`-g`选项：
+
+```bash
+Wispha state -g path/to/LOOKME.wispha
+```
+
+该命令在上述描述的基础上，只查看那些被Git记录的，未被Wispha记录的文件。
+
 ### 高级使用
 
 可以在项目根目录下新建名为`.wispharc`的配置文件用于配置项目。`.wispharc`配置文件使用[TOML](https://github.com/toml-lang/toml)语法。一份常用的`.wispharc`文件内容如下：

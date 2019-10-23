@@ -188,6 +188,24 @@ It is worth noting that, for property whose name contains whitespace, such as `e
 wispha@some/path > info "entry type"
 ```
 
+### State inspection
+
+For a given directory with path `/path/to/LOOKME.wispha`, we can use the command
+
+```bash
+Wispha state path/to/LOOKME.wispha
+```
+
+to inpect all files that are in project at `path/to` and not be recorded by Wispha. The key-value pairs `ignored_files` and `allow_hidden_files` in `generate` table of `.wispha` are still valid.
+
+Moreover, we can add `-g` option:
+
+```bash
+Wispha state -g path/to/LOOK<E.wispha
+```
+
+This command only inspect those files which are recorded by Git and not recorded by Wispha.
+
 ### Advanced usage
 
 We can create a `.wispharc` file in the root directory of the project as configuration file. `.wispharc` file uses [TOML](https://github.com/toml-lang/toml) grammar. A common `.wispharc` file is given as follow:
