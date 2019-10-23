@@ -42,6 +42,8 @@ pub struct Look {
 
 #[derive(StructOpt)]
 pub struct State {
+    #[structopt(short, long)]
+    pub git: bool,
     pub path: PathBuf,
 }
 

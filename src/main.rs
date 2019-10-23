@@ -89,6 +89,7 @@ fn main_with_error() -> Result<(), MainError> {
             if let Some(config) = config {
                 options.update_from_config(&config);
             }
+            options.update_from_commandline(state);
 
             let unrecorded_files = stator::state_from_path(&actual_path, options)?;
             if unrecorded_files.is_empty() {

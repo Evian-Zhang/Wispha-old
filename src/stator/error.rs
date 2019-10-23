@@ -13,6 +13,8 @@ pub enum StatorError {
     ConfigError(ConfigError),
     ParserError(ParserError),
     ParserOptionError(ParserOptionError),
+    CanNotOpenGitRepository(PathBuf),
+    Unexpected,
 }
 
 impl Error for StatorError { }
@@ -35,6 +37,12 @@ impl Display for StatorError {
             },
             ParserOptionError(error) => {
                 format!("{}", error)
+            },
+            CanNotOpenGitRepository(path) => {
+                format!("Cannot open git repository at {}", path.to_str().unwrap())
+            },
+            Unexpected => {
+                format!("Unexpected error.")
             }
         };
         write!(f, "{}", message)

@@ -1,8 +1,10 @@
 use crate::config_reader::Config;
+use crate::commandline::State;
 
 pub struct StatorOptions {
     pub ignored_files: Vec<String>,
     pub allow_hidden_files: bool,
+    pub git: bool,
 }
 
 impl StatorOptions {
@@ -10,6 +12,7 @@ impl StatorOptions {
         StatorOptions {
             ignored_files: vec![],
             allow_hidden_files: false,
+            git: false,
         }
     }
 
@@ -22,5 +25,9 @@ impl StatorOptions {
                 self.allow_hidden_files = *allow_hidden_files;
             }
         }
+    }
+
+    pub fn update_from_commandline(&mut self, state: &State) {
+        self.git = state.git;
     }
 }
