@@ -95,7 +95,7 @@ fn main_with_error() -> Result<(), MainError> {
                 println!("All valid files are recorded in Wispha.");
             } else {
                 let unrecorded_files_strs: Vec<String> = unrecorded_files.iter().map(|path| path.to_str().unwrap().to_string()).collect();
-                println!("The following file(s) are unrecorded in Wispha:\n{}", unrecorded_files_strs.join("\n"));
+                println!("The following file(s) are not recorded in Wispha:\n{}", unrecorded_files_strs.join("\n"));
             }
         }
     }

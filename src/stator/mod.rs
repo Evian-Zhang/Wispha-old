@@ -58,9 +58,11 @@ fn get_unrecorded_files_from_root(root_dir: &PathBuf, unrecorded_paths: &mut Vec
     if is_path_unrecorded(root_dir, &ignored, &recorded_paths, options) {
         unrecorded_paths.push(root_dir.clone());
     }
-    for entry in fs::read_dir(root_dir).or(Err(StatorError::DirCannotRead(root_dir.clone())))? {
-        let entry = entry.unwrap();
-        get_unrecorded_files_from_root(&entry.path(), unrecorded_paths, recorded_paths, ignored, options)?;
+    if root_dir.is_dir() {
+        for entry in fs::read_dir(root_dir).or(Err(StatorError::DirCannotRead(root_dir.clone())))? {
+            let entry = entry.unwrap();
+            get_unrecorded_files_from_root(&entry.path(), unrecorded_paths, recorded_paths, ignored, options)?;
+        }
     }
     Ok(())
 }
