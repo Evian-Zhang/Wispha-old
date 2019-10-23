@@ -21,6 +21,8 @@ use std::path::PathBuf;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::result::Result;
+use crate::stator::option::StatorOptions;
+use crate::stator::error::StatorError;
 
 // `raw`: relative or absolute. If cannot determine current directory, an error is raised
 fn actual_path(raw: &PathBuf) -> Result<PathBuf, MainError> {
@@ -75,6 +77,26 @@ fn main_with_error() -> Result<(), MainError> {
             let manipulator = Manipulator::new(&root, &root);
             println!("Looking ready!");
             commandline::continue_program(manipulator);
+        },
+
+        Subcommand::State(state) => {
+            let path = &state.path;
+            let actual_path = actual_path(&path)?;
+            println!("Traversing to determine state...");
+
+            let mut options = StatorOptions::default();
+            let config = config_reader::read_configs_in_dir(&actual_path)?;
+            if let Some(config) = config {
+                options.update_from_config(&config);
+            }
+
+            let unrecorded_files = stator::state_from_path(&actual_path, options)?;
+            if unrecorded_files.is_empty() {
+                println!("All valid files are recorded in Wispha.");
+            } else {
+                let unrecorded_files_strs: Vec<String> = unrecorded_files.iter().map(|path| path.to_str().unwrap().to_string()).collect();
+                println!("The following file(s) are unrecorded in Wispha:\n{}", unrecorded_files_strs.join("\n"));
+            }
         }
     }
     Ok(())
@@ -96,6 +118,7 @@ pub enum MainError {
     GeneratorOptionError(GeneratorOptionError),
     ConfigError(ConfigError),
     ParserOptionError(ParserOptionError),
+    StatorError(StatorError),
 }
 
 impl Error for MainError { }
@@ -120,6 +143,9 @@ impl Display for MainError {
                 format!("{}", error)
             },
             ParserOptionError(error) => {
+                format!("{}", error)
+            },
+            StatorError(error) => {
                 format!("{}", error)
             }
         };
@@ -154,5 +180,11 @@ impl From<ConfigError> for MainError {
 impl From<ParserOptionError> for MainError {
     fn from(error: ParserOptionError) -> Self {
         MainError::ParserOptionError(error)
+    }
+}
+
+impl From<StatorError> for MainError {
+    fn from(error: StatorError) -> Self {
+        MainError::StatorError(error)
     }
 }

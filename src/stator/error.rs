@@ -1,10 +1,18 @@
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Display, Formatter, Debug};
+use std::path::PathBuf;
+use crate::config_reader::error::ConfigError;
+use crate::parser::error::ParserError;
+use crate::parser::option::ParserOptionError;
 
 #[derive(Debug)]
 pub enum StatorError {
     IgnoreError(ignore::Error),
+    DirCannotRead(PathBuf),
+    ConfigError(ConfigError),
+    ParserError(ParserError),
+    ParserOptionError(ParserOptionError),
 }
 
 impl Error for StatorError { }
@@ -15,6 +23,18 @@ impl Display for StatorError {
         let message = match &self {
             IgnoreError(error) => {
                 format!("{}", deal_with_ignore_error(error))
+            },
+            DirCannotRead(path) => {
+                format!("Cannot read directory {}", path.to_str().unwrap())
+            },
+            ConfigError(error) => {
+                format!("{}", error)
+            },
+            ParserError(error) => {
+                format!("{}", error)
+            },
+            ParserOptionError(error) => {
+                format!("{}", error)
             }
         };
         write!(f, "{}", message)

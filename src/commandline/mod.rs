@@ -21,6 +21,7 @@ pub struct WisphaCommand {
 pub enum Subcommand {
     Generate(Generate),
     Look(Look),
+    State(State),
 }
 
 #[derive(StructOpt)]
@@ -36,6 +37,11 @@ pub struct Generate {
 
 #[derive(StructOpt)]
 pub struct Look {
+    pub path: PathBuf,
+}
+
+#[derive(StructOpt)]
+pub struct State {
     pub path: PathBuf,
 }
 
