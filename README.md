@@ -118,7 +118,7 @@ to generate `LOOKEME.wispha` recursively, namely, generate `LOOKEME.wispha` in t
 
 ### Analyze
 
-For a given directory with path `/path/to/LOOKME.wispha`, we can use the command
+For a given directory with path `path/to/LOOKME.wispha`, we can use the command
 
 ```bash
 Wispha look path/to/LOOKME.wispha
@@ -190,7 +190,7 @@ wispha@some/path > info "entry type"
 
 ### State inspection
 
-For a given directory with path `/path/to/LOOKME.wispha`, we can use the command
+For a given directory with path `path/to/LOOKME.wispha`, we can use the command
 
 ```bash
 Wispha state path/to/LOOKME.wispha
