@@ -84,6 +84,7 @@ fn should_include_entry(entry: &DirEntry, wispha_ignore: &Gitignore, options: &G
 }
 
 // `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative. Write all sub_entry to disk
+// if `path` is not allowed, all its entries will not be considered
 fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
     let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
     if path.is_dir() {

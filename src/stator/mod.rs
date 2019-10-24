@@ -6,7 +6,7 @@ use option::*;
 pub mod error;
 use error::*;
 
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 use crate::parser::option::ParserOptions;
 use crate::config_reader;
 use crate::parser::Parser;
@@ -18,7 +18,6 @@ use git2::{Repository, TreeWalkMode};
 
 type Result<T> = std::result::Result<T, StatorError>;
 
-// TODO: 解决隐藏文件夹问题
 pub fn state_from_path(path: &PathBuf, options: StatorOptions) -> Result<Vec<PathBuf>> {
     let root_dir = path.parent().unwrap().to_path_buf();
     let ignored = get_ignored_files_from_root(&root_dir, &options.ignored_files)?;
@@ -73,9 +72,11 @@ fn get_git_files_from_root(root_dir: &PathBuf) -> Result<Vec<PathBuf>> {
     Ok(git_files)
 }
 
+// If a directory is not recorded, entries of this directory are not included in unrecorded_paths
 fn get_unrecorded_files_from_root(root_dir: &PathBuf, unrecorded_paths: &mut Vec<PathBuf>, recorded_paths: &Vec<PathBuf>, ignored: &Gitignore, git_files: &Vec<PathBuf>, options: &StatorOptions) -> Result<()> {
     if is_path_unrecorded(root_dir, &ignored, &recorded_paths, git_files, options) {
         unrecorded_paths.push(root_dir.clone());
+        return Ok(());
     }
     if root_dir.is_dir() {
         for entry in fs::read_dir(root_dir).or(Err(StatorError::DirCannotRead(root_dir.clone())))? {
