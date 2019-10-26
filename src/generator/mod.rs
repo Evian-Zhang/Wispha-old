@@ -120,7 +120,7 @@ fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored
     Ok(wispha_entry)
 }
 
-fn generate_entry_from_path_concurrently(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions, sup_entry: Option<Arc<Mutex<WisphaEntry>>>, tx: mpsc::Sender<bool>) -> Result<()> {
+fn generate_entry_from_path_concurrently(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions, sup_entry_things: Option<(Arc<Mutex<WisphaEntry>>, mpsc::Sender<bool>, mpsc::Sender<bool>)>) -> Result<()> {
 //    let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
 //    if let Some(sup_entry) = sup_entry {
 //        let locked_sup_entry = sup_entry.lock().unwrap();
@@ -144,46 +144,53 @@ fn generate_entry_from_path_concurrently(path: &PathBuf, root_dir: &PathBuf, ign
         let intermediate_entry = WisphaIntermediateEntry {
             entry_file_path: relative_path,
         };
-        if let Some(sup_entry) = sup_entry {
+        let (tx_global, rx_global_option) = if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
             let locked_sup_entry = sup_entry.lock().unwrap();
             locked_sup_entry.sub_entries.borrow_mut().push(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(intermediate_entry))));
             drop(locked_sup_entry);
-            tx.send(true).or(Err(GeneratorError::Unexpected))?;
-            drop(tx);
-        }
+            tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
+            drop(tx_local);
+            (tx_global, None)
+        } else {
+            let (tx_global, rx_global) =mpsc::channel();
+            (tx_global, Some(rx_global))
+        };
         let wispha_entry = Arc::new(Mutex::new(generate_file_at_path_without_sub_and_sup(path, &options)?));
         let (tx, rx) = mpsc::channel();
         let entries: Vec<std::io::Result<DirEntry>> = fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))?.collect();
         let entries_count = entries.len();
         for entry in entries {
-            let a = thread::spawn(move || -> Result<()> {
+            let cloned_wispha = Arc::clone(&wispha_entry);
+            thread::spawn(move || -> Result<()> {
                 let entry = entry.or(Err(GeneratorError::Unexpected))?;
                 if should_include_entry(&entry, ignored_files, options) {
-                        generate_entry_from_path_concurrently(path, root_dir, ignored_files, options, Some(Arc::clone(&wispha_entry)), Sender::clone(&tx))?;
+                        generate_entry_from_path_concurrently(path, root_dir, ignored_files, options, Some((cloned_wispha, Sender::clone(&tx), Sender::clone(&tx_global))))?;
                 }
                 Ok(())
             });
         }
-        let mut received = 0;
-        for _ in rx {
-            received += 1;
-            if received == entries_count {
-                drop(tx);
-                break;
-            }
-        }
+        drop(tx);
+        for _ in rx { }
         let entry = wispha_entry.into_inner().unwrap();
         let absolute_path = path.join(PathBuf::from(&options.wispha_name));
         fs::write(&absolute_path, entry.to_file_string(0, root_dir)?)
             .or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
+        tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
+        drop(tx_global);
+        if let Some(rx_global) = rx_global_option {
+            for _ in rx_global { }
+            return Ok(())
+        }
     } else {
         let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
-        if let Some(sup_entry) = sup_entry {
+        if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
             let locked_sup_entry = sup_entry.lock().unwrap();
             locked_sup_entry.sub_entries.borrow_mut().push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(wispha_entry))));
             drop(locked_sup_entry);
-            tx.send(true).or(Err(GeneratorError::Unexpected))?;
-            drop(tx);
+            tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
+            drop(tx_local);
+            tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
+            drop(tx_global);
         }
     }
 
