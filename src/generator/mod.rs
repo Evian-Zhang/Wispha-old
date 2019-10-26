@@ -1,41 +1,36 @@
 use std::fs::{self, DirEntry};
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::{Mutex, Arc, mpsc};
+use std::thread;
+use std::sync::mpsc::Sender;
 
-use crate::wispha::{WisphaEntry, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 use crate::strings::*;
+use crate::wispha::{intermediate::*, core::*};
 
 use ignore::{gitignore::{GitignoreBuilder, Gitignore}};
 
 pub mod error;
-
 use error::GeneratorError;
 
 mod converter;
 
 pub mod option;
-
 use option::*;
-use std::sync::{Mutex, Arc, mpsc};
-use std::thread;
-use std::sync::mpsc::Sender;
 
 pub type Result<T> = std::result::Result<T, GeneratorError>;
 
 // treat `path` as root. `path` is absolute
-pub fn generate(path: &PathBuf, options: GeneratorOptions) -> Result<()> {
-    let root = match &options.layer {
+pub fn generate(path: &'static PathBuf, options: GeneratorOptions) -> Result<()> {
+    match &options.layer {
         GenerateLayer::Flat => {
-            generate_file_at_path_flat(&path, &path, &get_ignored_files_from_root(path, &options.ignored_files)?, &options)?
+            let ignored_files = get_ignored_files_from_root(path, &options.ignored_files)?;
+            generate_entry_from_path_flat_and_concurrently(&path, &path, &ignored_files, &options, None)?;
         }
         GenerateLayer::Recursive => {
-            generate_file_at_path_recursively(&path, &path, &get_ignored_files_from_root(path, &options.ignored_files)?, &options)?
+            let ignored_files = get_ignored_files_from_root(path, &options.ignored_files)?;
+            generate_entry_from_path_recursively_and_concurrently(&path, &path, &ignored_files, &options, None)?;
         }
-    };
-    let root_path = path.join(PathBuf::from(&options.wispha_name));
-    fs::write(&root_path, &root.to_file_string(0, &path)?)
-        .or(Err(GeneratorError::FileCannotWrite(root_path.clone())))?;
+    }
     Ok(())
 }
 
@@ -50,8 +45,8 @@ fn get_ignored_files_from_root(root_dir: &PathBuf, ignored_files: &Vec<String>) 
 }
 
 // `path` is absolute
-fn generate_file_at_path_without_sub_and_sup(path: &PathBuf, options: &GeneratorOptions) -> Result<WisphaEntry> {
-    let mut wispha_entry = WisphaEntry::default();
+fn generate_file_at_path_without_sub_and_sup(path: &PathBuf, options: &GeneratorOptions) -> Result<WisphaDirectEntry> {
+    let mut wispha_entry = WisphaDirectEntry::default();
 
     wispha_entry.properties.name = path.file_name().ok_or(GeneratorError::NameNotDetermined(path.clone()))?
         .to_str().ok_or(GeneratorError::NameNotValid(path.clone()))?
@@ -86,67 +81,22 @@ fn should_include_entry(entry: &DirEntry, wispha_ignore: &Gitignore, options: &G
     true
 }
 
-// `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Generated intermediate entry's path is relative. Write all sub_entry to disk
-// if `path` is not allowed, all its entries will not be considered
-fn generate_file_at_path_recursively(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
-    let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
-    if path.is_dir() {
-        for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
-            let entry = entry.or(Err(GeneratorError::Unexpected))?;
-            if should_include_entry(&entry, ignored_files, options) {
-                let sub_entry = generate_file_at_path_recursively(&entry.path(), root_dir, ignored_files, &options)?;
-                if (&entry.path()).is_dir() {
-                    let absolute_path = sub_entry.properties.absolute_path
-                        .join(PathBuf::from(&options.wispha_name));
-                    fs::write(&absolute_path, &sub_entry.to_file_string(0, root_dir)?)
-                        .or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
-
-                    let relative_path = PathBuf::from(&sub_entry.properties.name)
-                        .join(PathBuf::from(&options.wispha_name));
-
-                    let intermediate_entry = WisphaIntermediateEntry {
-                        entry_file_path: relative_path,
-                    };
-
-                    wispha_entry.sub_entries.borrow_mut()
-                        .push(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(intermediate_entry))));
-                } else {
-                    wispha_entry.sub_entries.borrow_mut()
-                        .push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(sub_entry))));
-                }
-            }
-        }
-    }
-    Ok(wispha_entry)
-}
-
-fn generate_entry_from_path_concurrently(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions, sup_entry_things: Option<(Arc<Mutex<WisphaEntry>>, mpsc::Sender<bool>, mpsc::Sender<bool>)>) -> Result<()> {
-//    let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
-//    if let Some(sup_entry) = sup_entry {
-//        let locked_sup_entry = sup_entry.lock().unwrap();
-//        if path.is_dir() {
-//            let relative_path = PathBuf::from(path.file_name().unwrap())
-//                .join(PathBuf::from(&options.wispha_name));
-//
-//            let intermediate_entry = WisphaIntermediateEntry {
-//                entry_file_path: relative_path,
-//            };
-//            *locked_sup_entry.sub_entries.borrow_mut().push(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(intermediate_entry))));
-//        } else {
-//            *locked_sup_entry.sub_entries.borrow_mut().push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(wispha_entry))));
-//        }
-//        drop(locked_sup_entry);
-//    }
+// `sup_entry_things` is `None` if this is the top call from user, otherwise it is called from the function
+// top call from user will not returned until the entire tree is constructed and all `.wispha` file is written
+// `path` and `root_dir` is absolute
+fn generate_entry_from_path_recursively_and_concurrently(path: &'static PathBuf, root_dir: &'static PathBuf, ignored_files: &'static Gitignore, options: &'static GeneratorOptions, sup_entry_things: Option<(Arc<Mutex<WisphaDirectEntry>>, mpsc::Sender<bool>, mpsc::Sender<bool>)>) -> Result<()> {
     if path.is_dir() {
         let relative_path = PathBuf::from(path.file_name().unwrap())
             .join(PathBuf::from(&options.wispha_name));
 
-        let intermediate_entry = WisphaIntermediateEntry {
+        let link_entry = WisphaLinkEntry {
             entry_file_path: relative_path,
         };
         let (tx_global, rx_global_option) = if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
-            let locked_sup_entry = sup_entry.lock().unwrap();
-            locked_sup_entry.sub_entries.borrow_mut().push(Rc::new(RefCell::new(WisphaFatEntry::Intermediate(intermediate_entry))));
+            let locked_sup_entry     = sup_entry.lock().unwrap();
+            let mut locked_sub_entries = locked_sup_entry.sub_entries.lock().unwrap();
+            locked_sub_entries.push(Arc::new(Mutex::new(WisphaIntermediateEntry::Link(link_entry))));
+            drop(locked_sub_entries);
             drop(locked_sup_entry);
             tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
             drop(tx_local);
@@ -155,23 +105,23 @@ fn generate_entry_from_path_concurrently(path: &PathBuf, root_dir: &PathBuf, ign
             let (tx_global, rx_global) =mpsc::channel();
             (tx_global, Some(rx_global))
         };
-        let wispha_entry = Arc::new(Mutex::new(generate_file_at_path_without_sub_and_sup(path, &options)?));
+        let direct_entry = Arc::new(Mutex::new(generate_file_at_path_without_sub_and_sup(path, &options)?));
         let (tx, rx) = mpsc::channel();
         let entries: Vec<std::io::Result<DirEntry>> = fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))?.collect();
         let entries_count = entries.len();
         for entry in entries {
-            let cloned_wispha = Arc::clone(&wispha_entry);
+            let cloned_wispha = Arc::clone(&direct_entry);
             thread::spawn(move || -> Result<()> {
                 let entry = entry.or(Err(GeneratorError::Unexpected))?;
                 if should_include_entry(&entry, ignored_files, options) {
-                        generate_entry_from_path_concurrently(path, root_dir, ignored_files, options, Some((cloned_wispha, Sender::clone(&tx), Sender::clone(&tx_global))))?;
+                    generate_entry_from_path_recursively_and_concurrently(path, root_dir, ignored_files, options, Some((cloned_wispha, Sender::clone(&tx), Sender::clone(&tx_global))))?;
                 }
                 Ok(())
             });
         }
         drop(tx);
         for _ in rx { }
-        let entry = wispha_entry.into_inner().unwrap();
+        let entry = direct_entry.into_inner().unwrap();
         let absolute_path = path.join(PathBuf::from(&options.wispha_name));
         fs::write(&absolute_path, entry.to_file_string(0, root_dir)?)
             .or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
@@ -182,10 +132,12 @@ fn generate_entry_from_path_concurrently(path: &PathBuf, root_dir: &PathBuf, ign
             return Ok(())
         }
     } else {
-        let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
+        let direct_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
         if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
             let locked_sup_entry = sup_entry.lock().unwrap();
-            locked_sup_entry.sub_entries.borrow_mut().push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(wispha_entry))));
+            let mut locked_sub_entries = locked_sup_entry.sub_entries.lock().unwrap();
+            locked_sub_entries.push(Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(direct_entry))));
+            drop(locked_sub_entries);
             drop(locked_sup_entry);
             tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
             drop(tx_local);
@@ -197,18 +149,52 @@ fn generate_entry_from_path_concurrently(path: &PathBuf, root_dir: &PathBuf, ign
     Ok(())
 }
 
-// `path` and `root_dir` are absolute. Returned `WisphaEntry` has no `sup_entry`. Not write sub_entry to disk
-fn generate_file_at_path_flat(path: &PathBuf, root_dir: &PathBuf, ignored_files: &Gitignore, options: &GeneratorOptions) -> Result<WisphaEntry> {
-    let wispha_entry = generate_file_at_path_without_sub_and_sup(path, &options)?;
+// `sup_entry_things` is `None` if this is the top call from user, otherwise it is called from the function
+// top call from user will not returned until the entire tree is constructed and `.wispha` file is written
+// `path` and `root_dir` is absolute
+fn generate_entry_from_path_flat_and_concurrently(path: &'static PathBuf, root_dir: &'static PathBuf, ignored_files: &'static Gitignore, options: &'static GeneratorOptions, sup_entry_things: Option<(Arc<Mutex<WisphaIntermediateEntry>>, mpsc::Sender<bool>, mpsc::Sender<bool>)>) -> Result<()> {
+    let intermediate_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(generate_file_at_path_without_sub_and_sup(path, &options)?)));
+    let (tx_global, rx_global_option) = if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
+        let mut locked_sup_entry = sup_entry.lock().unwrap();
+        let mut locked_sub_entries = locked_sup_entry.get_direct_entry_mut().unwrap().sub_entries.lock().unwrap();
+        locked_sub_entries.push(Arc::clone(&intermediate_entry));
+        drop(locked_sub_entries);
+        drop(locked_sup_entry);
+        tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
+        drop(tx_local);
+        (tx_global, None)
+    } else {
+        let (tx_global, rx_global) =mpsc::channel();
+        (tx_global, Some(rx_global))
+    };
     if path.is_dir() {
+        let (tx, rx) = mpsc::channel();
         for entry in fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))? {
-            let entry = entry.or(Err(GeneratorError::Unexpected))?;
-            if should_include_entry(&entry, ignored_files, options) {
-                let sub_entry = generate_file_at_path_flat(&entry.path(), root_dir, ignored_files, &options)?;
-                wispha_entry.sub_entries.borrow_mut()
-                    .push(Rc::new(RefCell::new(WisphaFatEntry::Immediate(sub_entry))));
-            }
+            let cloned_wispha = Arc::clone(&intermediate_entry);
+            thread::spawn(move || -> Result<()> {
+                let entry = entry.or(Err(GeneratorError::Unexpected))?;
+                if should_include_entry(&entry, ignored_files, options) {
+                    generate_entry_from_path_flat_and_concurrently(path, root_dir, ignored_files, options, Some((cloned_wispha, Sender::clone(&tx), Sender::clone(&tx_global))));
+                }
+                Ok(())
+            });
         }
+        drop(tx);
+        for _ in rx { }
+        tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
+        drop(tx_global);
+        if let Some(rx_global) = rx_global_option {
+            for _ in rx_global { }
+            let intermediate_entry = intermediate_entry.into_inner().unwrap();
+            let entry = intermediate_entry.get_direct_entry().unwrap();
+            let absolute_path = path.join(PathBuf::from(&options.wispha_name));
+            fs::write(&absolute_path, entry.to_file_string(0, root_dir)?)
+                .or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
+            return Ok(())
+        }
+    } else {
+        tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
+        drop(tx_global);
     }
-    Ok(wispha_entry)
+    Ok(())
 }

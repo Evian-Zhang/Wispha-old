@@ -2,9 +2,10 @@ use std::path::PathBuf;
 use std::fmt::Write as FmtWrite;
 use std::rc::Rc;
 
-use crate::wispha::{WisphaEntry, WisphaEntryProperties, WisphaFatEntry};
 use crate::generator::error::GeneratorError;
+use crate::wispha::{intermediate::*, core::*};
 use crate::strings::*;
+use std::sync::Mutex;
 
 type Result<T> = std::result::Result<T, GeneratorError>;
 
@@ -77,7 +78,7 @@ impl WisphaEntryProperties {
     }
 }
 
-impl WisphaEntry {
+impl WisphaDirectEntry {
     pub fn to_file_string(&self, depth: u32, root_dir: &PathBuf) -> Result<String> {
         let mut begin_mark = String::new();
         let mut counter = 0;
@@ -90,11 +91,11 @@ impl WisphaEntry {
 
         let mut sub_entry_strings: Vec<String> = Vec::new();
         let sub_entries_header_string = format!("{} [{}]", begin_mark, SUB_ENTRIES_HEADER);
-        for sub_entry in &*self.sub_entries.try_borrow().or(Err(GeneratorError::Unexpected))? {
-            let sub_entry_reference_count_pointer = Rc::clone(sub_entry);
-            let sub_entry = &*sub_entry_reference_count_pointer.try_borrow().or(Err(GeneratorError::Unexpected))?;
-            let sub_entry_content = match sub_entry {
-                WisphaFatEntry::Intermediate(entry) => {
+        let locked_sub_entries = self.sub_entries.lock().unwrap();
+        for sub_entry in *locked_sub_entries {
+            let locked_sub_entry = sub_entry.lock().unwrap();
+            let sub_entry_content = match *locked_sub_entry {
+                WisphaIntermediateEntry::Link(entry) => {
                     let entry_file_path_header_string = format!("{}{} [{}]",
                                                                 begin_mark,
                                                                 BEGIN_MARK,
@@ -105,13 +106,15 @@ impl WisphaEntry {
                             entry.entry_file_path.to_str().ok_or(GeneratorError::NameNotValid(entry.entry_file_path.clone()))?,
                             LINE_SEPARATOR)
                 }
-                WisphaFatEntry::Immediate(entry) => {
+                WisphaIntermediateEntry::Direct(entry) => {
                     entry.to_file_string(depth + 1, root_dir)?
                 }
             };
+            drop(locked_sub_entry);
             let sub_entry_string = [sub_entries_header_string.clone(), sub_entry_content].join(LINE_SEPARATOR);
             sub_entry_strings.push(sub_entry_string);
         }
+        drop(locked_sub_entries);
         if sub_entry_strings.len() > 0 {
             Ok([properties_string, sub_entry_strings.join(LINE_SEPARATOR)].join(LINE_SEPARATOR))
         } else {

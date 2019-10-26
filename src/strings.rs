@@ -1,4 +1,4 @@
-use crate::wispha::WisphaEntryType;
+use crate::wispha::core::WisphaEntryType;
 
 pub const DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
 pub const DEFAULT_NAME: &str = "default name";

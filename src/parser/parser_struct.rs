@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct WisphaRawToken {
@@ -138,16 +139,8 @@ impl PartialEq for WisphaToken {
 
 impl Eq for WisphaToken { }
 
+#[derive(Clone)]
 pub struct WisphaRawProperty {
-    pub header: Rc<WisphaToken>,
-    pub body: Vec<Rc<WisphaToken>>,
-}
-
-impl Clone for WisphaRawProperty {
-    fn clone(&self) -> Self {
-        WisphaRawProperty {
-            header: self.header.clone(),
-            body: self.body.clone(),
-        }
-    }
+    pub header: Arc<WisphaToken>,
+    pub body: Vec<Arc<WisphaToken>>,
 }
