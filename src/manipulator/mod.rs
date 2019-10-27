@@ -13,7 +13,7 @@ use error::ManipulatorError;
 type Result<T> = std::result::Result<T, ManipulatorError>;
 
 pub struct Manipulator {
-    pub root: Rc<RefCell<WisphaFatEntry>>,
+    pub root: Rc<RefCell<WisphaEntry>>,
     pub current_entry: Rc<RefCell<WisphaEntry>>,
     pub entries: HashMap<PathBuf, Rc<RefCell<WisphaEntry>>>,
 }

@@ -1,4 +1,5 @@
 use ignore::{gitignore::{GitignoreBuilder, Gitignore}};
+use git2::{Repository, TreeWalkMode};
 
 pub mod option;
 use option::*;
@@ -6,15 +7,15 @@ use option::*;
 pub mod error;
 use error::*;
 
-use std::path::PathBuf;
 use crate::parser::option::ParserOptions;
 use crate::config_reader;
 use crate::parser::Parser;
+use crate::wispha::common::*;
+
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::fs;
-use crate::wispha::WisphaFatEntry;
-use git2::{Repository, TreeWalkMode};
 
 type Result<T> = std::result::Result<T, StatorError>;
 
@@ -28,7 +29,7 @@ pub fn state_from_path(path: &PathBuf, options: StatorOptions) -> Result<Vec<Pat
         parser_options.update_from_config(&config).or_else(|error| Err(StatorError::ParserOptionError(error)))?;
     }
     let mut parser = Parser::new();
-    let root = parser.parse(&path, parser_options).or_else(|error| Err(StatorError::ParserError(error)))?;
+    let root = parser.parse(&path, &parser_options).or_else(|error| Err(StatorError::ParserError(error)))?;
 
     let mut recorded_paths = vec![];
     let entry = Rc::clone(&root);
@@ -41,7 +42,7 @@ pub fn state_from_path(path: &PathBuf, options: StatorOptions) -> Result<Vec<Pat
     };
 
     let mut unrecorded_paths = vec![];
-    get_unrecorded_files_from_root(&root.borrow().get_immediate_entry().unwrap().properties.absolute_path, &mut unrecorded_paths, &recorded_paths, &ignored, &git_files, &options)?;
+    get_unrecorded_files_from_root(&root.borrow().properties.absolute_path, &mut unrecorded_paths, &recorded_paths, &ignored, &git_files, &options)?;
     Ok(unrecorded_paths)
 }
 
@@ -54,10 +55,10 @@ fn get_ignored_files_from_root(root_dir: &PathBuf, ignored_files: &Vec<String>) 
     Ok(wispha_ignore)
 }
 
-fn get_recorded_files_from_root(root: Rc<RefCell<WisphaFatEntry>>, recorded_paths: &mut Vec<PathBuf>) {
-    recorded_paths.push(root.borrow().get_immediate_entry().unwrap().properties.absolute_path.clone());
-    for subentry in &*root.borrow().get_immediate_entry().unwrap().sub_entries.borrow() {
-        get_recorded_files_from_root(Rc::clone(subentry), recorded_paths);
+fn get_recorded_files_from_root(root: Rc<RefCell<WisphaEntry>>, recorded_paths: &mut Vec<PathBuf>) {
+    recorded_paths.push(root.borrow().properties.absolute_path.clone());
+    for sub_entry in &*root.borrow().sub_entries.borrow() {
+        get_recorded_files_from_root(Rc::clone(sub_entry), recorded_paths);
     }
 }
 

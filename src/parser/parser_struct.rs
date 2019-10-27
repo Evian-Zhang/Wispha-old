@@ -16,7 +16,7 @@ pub enum WisphaExpectOption {
     IgnoreContent,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum WisphaToken {
     Header(WisphaRawToken, usize),
     Body(WisphaRawToken),
@@ -107,19 +107,6 @@ impl WisphaToken {
     }
 }
 
-impl Clone for WisphaToken {
-    fn clone(&self) -> Self {
-        match &self {
-            WisphaToken::Header(raw_token, depth) => {
-                WisphaToken::Header(raw_token.clone(), depth.clone())
-            },
-            WisphaToken::Body(raw_token) => {
-                WisphaToken::Body(raw_token.clone())
-            },
-        }
-    }
-}
-
 impl PartialEq for WisphaToken {
     fn eq(&self, other: &Self) -> bool {
         use WisphaToken::*;
@@ -141,6 +128,6 @@ impl Eq for WisphaToken { }
 
 #[derive(Clone)]
 pub struct WisphaRawProperty {
-    pub header: Arc<WisphaToken>,
-    pub body: Vec<Arc<WisphaToken>>,
+    pub header: Rc<WisphaToken>,
+    pub body: Vec<Rc<WisphaToken>>,
 }

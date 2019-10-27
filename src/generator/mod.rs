@@ -108,7 +108,6 @@ fn generate_entry_from_path_recursively_and_concurrently(path: &'static PathBuf,
         let direct_entry = Arc::new(Mutex::new(generate_file_at_path_without_sub_and_sup(path, &options)?));
         let (tx, rx) = mpsc::channel();
         let entries: Vec<std::io::Result<DirEntry>> = fs::read_dir(&path).or(Err(GeneratorError::DirCannotRead(path.clone())))?.collect();
-        let entries_count = entries.len();
         for entry in entries {
             let cloned_wispha = Arc::clone(&direct_entry);
             thread::spawn(move || -> Result<()> {

@@ -72,7 +72,7 @@ fn main_with_error() -> Result<(), MainError> {
             }
 
             let mut parser = Parser::new();
-            let root = parser.parse(&actual_path, options)?;
+            let root = parser.parse(&actual_path, &options)?;
 
             let manipulator = Manipulator::new(&root, &root);
             println!("Looking ready!");

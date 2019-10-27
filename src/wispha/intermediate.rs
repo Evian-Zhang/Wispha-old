@@ -2,8 +2,10 @@ use std::path::PathBuf;
 use std::sync::{Mutex, Weak, Arc};
 use std::collections::HashMap;
 
-use crate::wispha::core::*;
+use crate::wispha::{core::*, common::*};
 use crate::strings::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Clone)]
 pub enum WisphaIntermediateEntry {
@@ -20,6 +22,14 @@ pub struct WisphaDirectEntry {
     pub properties:  WisphaEntryProperties,
     pub sup_entry: Mutex<Weak<Mutex<WisphaIntermediateEntry>>>,
     pub sub_entries: Mutex<Vec<Arc<Mutex<WisphaIntermediateEntry>>>>,
+}
+
+impl WisphaLinkEntry {
+    pub fn default() -> WisphaLinkEntry {
+        WisphaLinkEntry {
+            entry_file_path: PathBuf::new(),
+        }
+    }
 }
 
 impl WisphaDirectEntry {
@@ -46,6 +56,17 @@ impl WisphaDirectEntry {
 }
 
 impl WisphaIntermediateEntry {
+    pub fn get_type(&self) -> WisphaIntermediateEntry {
+        use WisphaIntermediateEntry::*;
+        match &self {
+            Direct(_) => {
+                Direct(WisphaDirectEntry::default())
+            },
+            Link(_) => {
+                Link(WisphaLinkEntry::default())
+            }
+        }
+    }
     pub fn get_direct_entry(&self) -> Option<&WisphaDirectEntry> {
         if let WisphaIntermediateEntry::Direct(entry) = &self {
             return Some(entry);
@@ -72,6 +93,33 @@ impl WisphaIntermediateEntry {
             return Some(entry);
         }
         None
+    }
+
+    // must be used from the top, i.e., the `sup_entry` is RefCell::new(Weak::new())
+    pub fn to_common(&self) -> Option<Rc<RefCell<WisphaEntry>>> {
+        use WisphaIntermediateEntry::*;
+        match &self {
+            Direct(direct_entry) => {
+                let mut common = Rc::new(RefCell::new(WisphaEntry::default()));
+                common.borrow_mut().properties = direct_entry.properties.clone();
+                let locked_sub_entries = direct_entry.sub_entries.lock().unwrap();
+                for sub_entry in &*locked_sub_entries {
+                    let locked_sub_entry = sub_entry.lock().unwrap();
+                    if let Some(sub_entry) = locked_sub_entry.to_common() {
+                        sub_entry.borrow_mut().sup_entry = RefCell::new(Rc::downgrade(&common));
+                        common.borrow_mut().sub_entries.borrow_mut().push(Rc::clone(&sub_entry));
+                    } else {
+                        return None;
+                    }
+                    drop(locked_sub_entry);
+                }
+                drop(locked_sub_entries);
+                Some(common)
+            },
+            Link(_) => {
+                None
+            }
+        }
     }
 }
 
