@@ -9,7 +9,7 @@ use error::*;
 
 use crate::parser::option::ParserOptions;
 use crate::config_reader;
-use crate::parser::Parser;
+use crate::parser;
 use crate::wispha::common::*;
 
 use std::path::PathBuf;
@@ -28,8 +28,7 @@ pub fn state_from_path(path: &PathBuf, options: StatorOptions) -> Result<Vec<Pat
     if let Some(config) = config {
         parser_options.update_from_config(&config).or_else(|error| Err(StatorError::ParserOptionError(error)))?;
     }
-    let mut parser = Parser::new();
-    let root = parser.parse(&path, &parser_options).or_else(|error| Err(StatorError::ParserError(error)))?;
+    let root = parser::parse(&path, parser_options).or_else(|error| Err(StatorError::ParserError(error)))?;
 
     let mut recorded_paths = vec![];
     let entry = Rc::clone(&root);

@@ -6,6 +6,7 @@ use crate::config_reader::{Config, PropertyConfig};
 
 type Result<T> = std::result::Result<T, ParserOptionError>;
 
+#[derive(Clone)]
 pub struct ParserOptions {
     pub properties: Vec<PropertyConfig>,
 }

@@ -9,7 +9,7 @@ mod strings;
 
 use crate::commandline::{WisphaCommand, Subcommand};
 use crate::generator::{error::GeneratorError, option::*};
-use crate::parser::{error::ParserError, option::* ,*};
+use crate::parser::{error::ParserError, option::*};
 use crate::manipulator::Manipulator;
 use crate::config_reader::error::ConfigError;
 
@@ -71,8 +71,7 @@ fn main_with_error() -> Result<(), MainError> {
                 options.update_from_config(&config)?;
             }
 
-            let mut parser = Parser::new();
-            let root = parser.parse(&actual_path, &options)?;
+            let root = parser::parse(&actual_path, options)?;
 
             let manipulator = Manipulator::new(&root, &root);
             println!("Looking ready!");

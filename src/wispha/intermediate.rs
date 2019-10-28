@@ -123,6 +123,32 @@ impl WisphaIntermediateEntry {
     }
 }
 
+// take victim's status, except for its sup_entry
+pub fn take_properties(entry: Arc<Mutex<WisphaIntermediateEntry>>, victim: Arc<Mutex<WisphaIntermediateEntry>>) {
+    use WisphaIntermediateEntry::*;
+    let mut locked_entry = entry.lock().unwrap();
+    if let Some(direct_entry) = locked_entry.get_direct_entry_mut() {
+        let mut locked_victim = victim.lock().unwrap();
+        if let Some(direct_victim) = locked_victim.get_direct_entry_mut() {
+            direct_entry.properties = direct_victim.properties.clone();
+//            let mut locked_entry_sub_entries = direct_entry.sub_entries.lock().unwrap();
+//            let locked_victim_sub_entries = direct_victim.sub_entries.lock().unwrap();
+//            for sub_entry in &*locked_victim_sub_entries {
+//                let mut locked_sub_entry = sub_entry.lock().unwrap();
+//                if let Some(direct_sub_entry) = locked_sub_entry.get_direct_entry_mut() {
+//                    direct_sub_entry.sup_entry = Mutex::new(Arc::downgrade(&entry));
+//                }
+//                drop(locked_sub_entry);
+//                locked_entry_sub_entries.push(Arc::clone(sub_entry));
+//            }
+//            drop(locked_victim_sub_entries);
+//            drop(locked_entry_sub_entries);
+        }
+        drop(locked_victim);
+    }
+    drop(locked_entry);
+}
+
 impl Clone for WisphaDirectEntry {
     fn clone(&self) -> Self {
         let locked_sup_entry = self.sup_entry.lock().unwrap();
