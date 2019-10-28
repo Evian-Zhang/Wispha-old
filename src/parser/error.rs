@@ -2,9 +2,7 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::{Display, Formatter, Debug};
 use std::path::PathBuf;
-use std::rc::Rc;
 
-use crate::parser::*;
 use crate::parser::parser_struct::{WisphaToken, WisphaExpectOption};
 
 #[derive(Debug)]

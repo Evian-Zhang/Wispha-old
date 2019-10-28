@@ -100,7 +100,7 @@ impl WisphaIntermediateEntry {
         use WisphaIntermediateEntry::*;
         match &self {
             Direct(direct_entry) => {
-                let mut common = Rc::new(RefCell::new(WisphaEntry::default()));
+                let common = Rc::new(RefCell::new(WisphaEntry::default()));
                 common.borrow_mut().properties = direct_entry.properties.clone();
                 let locked_sub_entries = direct_entry.sub_entries.lock().unwrap();
                 for sub_entry in &*locked_sub_entries {
@@ -125,7 +125,6 @@ impl WisphaIntermediateEntry {
 
 // take victim's status, except for its sup_entry
 pub fn take_properties(entry: Arc<Mutex<WisphaIntermediateEntry>>, victim: Arc<Mutex<WisphaIntermediateEntry>>) {
-    use WisphaIntermediateEntry::*;
     let mut locked_entry = entry.lock().unwrap();
     if let Some(direct_entry) = locked_entry.get_direct_entry_mut() {
         let mut locked_victim = victim.lock().unwrap();

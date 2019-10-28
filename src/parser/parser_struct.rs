@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct WisphaRawToken {

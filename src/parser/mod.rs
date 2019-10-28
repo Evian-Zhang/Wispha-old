@@ -1,14 +1,12 @@
 use onig::*;
 
 use std::path::{Path, PathBuf};
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::{fs, sync};
 use std::env;
 use std::cell::RefCell;
-use std::borrow::{Borrow, BorrowMut};
-use std::collections::HashMap;
+use std::borrow::Borrow;
 
-//use crate::wispha::{WisphaEntry, WisphaEntryType, WisphaFatEntry, WisphaIntermediateEntry};
 use crate::strings::*;
 use crate::wispha::{common::*, intermediate::*, core::*};
 
@@ -334,7 +332,7 @@ fn resolve(entry: Arc<Mutex<WisphaIntermediateEntry>>, options: ParserOptions, t
             tx_global.send(true).unwrap();
         }
         WisphaIntermediateEntry::Link(_) => {
-            let mut locked_entry = entry.lock().unwrap();
+            let locked_entry = entry.lock().unwrap();
             let link_entry = locked_entry.get_link_entry().unwrap();
             let file_path = link_entry.entry_file_path.clone();
             drop(locked_entry);

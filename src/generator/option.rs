@@ -8,6 +8,7 @@ use crate::strings::*;
 
 type Result<T> = std::result::Result<T, GeneratorOptionError>;
 
+#[derive(Clone)]
 pub struct GeneratorOptions {
     pub layer: GenerateLayer,
     pub allow_hidden_files: bool,
@@ -16,6 +17,7 @@ pub struct GeneratorOptions {
     pub wispha_name: String,
 }
 
+#[derive(Clone, Copy)]
 pub enum GenerateLayer {
     Flat,
     Recursive,

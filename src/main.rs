@@ -55,7 +55,7 @@ fn main_with_error() -> Result<(), MainError> {
             }
             options.update_from_commandline(generate)?;
 
-            generator::generate(&path, options)?;
+            generator::generate(path, options)?;
             println!("Successfully generate!");
         },
 

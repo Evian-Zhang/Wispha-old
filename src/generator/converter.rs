@@ -1,11 +1,9 @@
 use std::path::PathBuf;
 use std::fmt::Write as FmtWrite;
-use std::rc::Rc;
 
 use crate::generator::error::GeneratorError;
 use crate::wispha::{intermediate::*, core::*};
 use crate::strings::*;
-use std::sync::Mutex;
 
 type Result<T> = std::result::Result<T, GeneratorError>;
 
@@ -92,9 +90,9 @@ impl WisphaDirectEntry {
         let mut sub_entry_strings: Vec<String> = Vec::new();
         let sub_entries_header_string = format!("{} [{}]", begin_mark, SUB_ENTRIES_HEADER);
         let locked_sub_entries = self.sub_entries.lock().unwrap();
-        for sub_entry in *locked_sub_entries {
+        for sub_entry in &*locked_sub_entries {
             let locked_sub_entry = sub_entry.lock().unwrap();
-            let sub_entry_content = match *locked_sub_entry {
+            let sub_entry_content = match &*locked_sub_entry {
                 WisphaIntermediateEntry::Link(entry) => {
                     let entry_file_path_header_string = format!("{}{} [{}]",
                                                                 begin_mark,
