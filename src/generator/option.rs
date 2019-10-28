@@ -15,6 +15,7 @@ pub struct GeneratorOptions {
     pub properties: Vec<PropertyConfig>,
     pub ignored_files: Vec<String>,
     pub wispha_name: String,
+    pub threads: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -31,6 +32,7 @@ impl GeneratorOptions {
             properties: vec![],
             ignored_files: vec![],
             wispha_name: DEFAULT_FILE_NAME_STR.to_string(),
+            threads: DEFAULT_THREADS,
         }
     }
 
@@ -44,6 +46,9 @@ impl GeneratorOptions {
         };
         if generate.all {
             self.allow_hidden_files = true;
+        }
+        if let Some(threads) = generate.threads {
+            self.threads = threads;
         }
         Ok(())
     }

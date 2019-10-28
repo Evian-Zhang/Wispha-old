@@ -5,6 +5,7 @@ mod commandline;
 mod manipulator;
 mod config_reader;
 mod stator;
+mod helper;
 mod strings;
 
 use crate::commandline::{WisphaCommand, Subcommand};

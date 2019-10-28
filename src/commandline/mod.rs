@@ -32,6 +32,8 @@ pub struct Generate {
     pub recursively: bool,
     #[structopt(short, long)]
     pub all: bool,
+    #[structopt(short, long)]
+    pub threads: Option<usize>,
     pub path: Option<PathBuf>,
 }
 

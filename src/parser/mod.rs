@@ -262,47 +262,6 @@ fn build_wispha_direct_entry(properties: Vec<WisphaRawProperty>, options: Parser
     Ok(Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(direct_entry))))
 }
 
-//    fn resolve(&mut self, entry: Arc<Mutex<WisphaIntermediateEntry>>, options: &ParserOptions, tx_global: Sender<bool>) -> Result<Arc<Mutex<WisphaIntermediateEntry>>> {
-//        let locked_entry = entry.lock().unwrap();
-//        match &mut *locked_entry {
-//            WisphaIntermediateEntry::Direct(direct_entry) => {
-//                direct_entry.sup_entry = Mutex::new(sync::Weak::new());
-//                let locked_sub_entries = direct_entry.sub_entries.lock().unwrap();
-//                for sub_entry in &mut *locked_sub_entries {
-//                    *sub_entry = resolve(Arc::clone(sub_entry), options, tx_global)?;
-//                    let mut locked_sub_entry = sub_entry.lock().unwrap();
-//                    locked_sub_entry.get_direct_entry_mut().unwrap().sup_entry = Mutex::new(Arc::downgrade(&entry));
-//                    drop(locked_sub_entry);
-//                }
-//                drop(locked_sub_entries);
-//                Ok(Arc::clone(&entry))
-//            }
-//
-//            WisphaIntermediateEntry::Link(link_entry) => {
-//                let file_path = link_entry.entry_file_path.clone();
-//                let files = files.lock().unwrap();
-//                let entry_option = if let Some(entry) = files.get(&file_path) {
-//                    Some(Arc::clone(entry))
-//                } else {
-//                    None
-//                };
-//                drop(files);
-//                let entry = if let Some(entry) = entry_option {
-//                    let locked_entry = entry.lock().unwrap();
-//                    Arc::new(Mutex::new(locked_entry.clone()))
-//                    // leaving the scope forces `locked_entry` unlock
-//                } else {
-//                    thread::spawn(move || -> Result<()> {
-//
-//                        Ok(())
-//                    });
-//                    parse_with_env_set(&file_path, options, Some(Sender::clone(&tx_global)))?
-//                };
-//                Ok(entry)
-//            }
-//        }
-//    }
-
 // resolve `entry`, and transfer all its field to `this_entry`. `entry` may be link or direct, `this_entry` is direct.
 fn resolve(entry: Arc<Mutex<WisphaIntermediateEntry>>, options: ParserOptions, tx_global: Sender<bool>, this_entry: Arc<Mutex<WisphaIntermediateEntry>>) -> Result<()> {
     let locked_entry = entry.lock().unwrap();
