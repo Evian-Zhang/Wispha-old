@@ -17,6 +17,7 @@ mod converter;
 
 pub mod option;
 use option::*;
+use std::io::{stdout, Write};
 
 pub type Result<T> = std::result::Result<T, GeneratorError>;
 
@@ -83,57 +84,48 @@ fn should_include_entry(entry: &DirEntry, wispha_ignore: Arc<Gitignore>, options
     true
 }
 
-// `sup_entry_things` is `None` if this is the top call from user, otherwise it is called from the function
-// top call from user will not returned until the entire tree is constructed and all `.wispha` file is written
+// `tx_global_options` is `None` if this is the top call from user, otherwise it is called from the function.
+// Top call from user will not returned until the entire tree is constructed and all `.wispha` files are written
 // `path` and `root_dir` is absolute
-fn generate_entry_from_path_recursively_and_concurrently(path: Arc<PathBuf>, root_dir: Arc<PathBuf>, ignored_files: Arc<Gitignore>, options: Arc<GeneratorOptions>, sup_entry_things: Option<(Arc<Mutex<WisphaDirectEntry>>, mpsc::Sender<bool>, mpsc::Sender<bool>)>, thread_pool: Arc<Mutex<ThreadPool>>) -> Result<()> {
+fn generate_entry_from_path_recursively_and_concurrently(path: Arc<PathBuf>,
+                                                         root_dir: Arc<PathBuf>,
+                                                         ignored_files: Arc<Gitignore>,
+                                                         options: Arc<GeneratorOptions>,
+                                                         tx_global_option: Option<mpsc::Sender<bool>>,
+                                                         thread_pool: Arc<Mutex<ThreadPool>>) -> Result<()> {
     if path.is_dir() {
-        let relative_path = PathBuf::from(path.file_name().unwrap())
-            .join(PathBuf::from(&options.wispha_name));
-
-        let link_entry = WisphaLinkEntry {
-            entry_file_path: relative_path,
-        };
-        let (tx_global, rx_global_option) = if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
-            let locked_sup_entry     = sup_entry.lock().unwrap();
-            let mut locked_sub_entries = locked_sup_entry.sub_entries.lock().unwrap();
-            locked_sub_entries.push(Arc::new(Mutex::new(WisphaIntermediateEntry::Link(link_entry))));
-            drop(locked_sub_entries);
-            drop(locked_sup_entry);
-            tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
-            drop(tx_local);
+        let (tx_global, rx_global_option) = if let Some(tx_global) = tx_global_option {
             (tx_global, None)
         } else {
             let (tx_global, rx_global) =mpsc::channel();
             (tx_global, Some(rx_global))
         };
         let direct_entry = Arc::new(Mutex::new(generate_file_at_path_without_sub_and_sup(Arc::clone(&path), Arc::clone(&options))?));
-        let (tx, rx) = mpsc::channel();
-        let entries: Vec<std::io::Result<DirEntry>> = fs::read_dir(&*path).or(Err(GeneratorError::DirCannotRead((*path).clone())))?.collect();
+        let entries = fs::read_dir(&*path).or(Err(GeneratorError::DirCannotRead((*path).clone())))?;
         for entry in entries {
             let entry = entry.or(Err(GeneratorError::Unexpected))?;
-            let cloned_wispha = Arc::clone(&direct_entry);
             let cloned_ignored_files = Arc::clone(&ignored_files);
             let cloned_options = Arc::clone(&options);
             let cloned_path = Arc::new(entry.path().clone());
             let cloned_root_dir = Arc::clone(&root_dir);
-            let cloned_tx = Sender::clone(&tx);
             let cloned_tx_global = Sender::clone(&tx_global);
             let cloned_thread_pool = Arc::clone(&thread_pool);
-            if entry.path().is_dir() {
-                thread_pool.lock().unwrap().execute(move || {
-                    if should_include_entry(&entry, Arc::clone(&cloned_ignored_files), Arc::clone(&cloned_options)) {
-                        generate_entry_from_path_recursively_and_concurrently(cloned_path, cloned_root_dir, cloned_ignored_files, cloned_options, Some((cloned_wispha, cloned_tx, cloned_tx_global)), cloned_thread_pool);
-                    }
-                });
-            } else {
-                if should_include_entry(&entry, Arc::clone(&cloned_ignored_files), Arc::clone(&cloned_options)) {
-                    generate_entry_from_path_recursively_and_concurrently(cloned_path, cloned_root_dir, cloned_ignored_files, cloned_options, Some((cloned_wispha, cloned_tx, cloned_tx_global)), cloned_thread_pool)?;
+            if should_include_entry(&entry, Arc::clone(&cloned_ignored_files), Arc::clone(&cloned_options)) {
+                if entry.path().is_dir() {
+                    let link_entry = WisphaLinkEntry {
+                        entry_file_path: entry.path().clone().join(PathBuf::from(&options.wispha_name)),
+                    };
+                    direct_entry.lock().unwrap().sub_entries.lock().unwrap().push(Arc::new(Mutex::new(WisphaIntermediateEntry::Link(link_entry))));
+                    thread_pool.lock().unwrap().execute(move || {
+                        generate_entry_from_path_recursively_and_concurrently(cloned_path, cloned_root_dir, cloned_ignored_files, cloned_options, Some(cloned_tx_global), cloned_thread_pool);
+                    });
+                } else {
+                    let sub_entry = generate_file_at_path_without_sub_and_sup(Arc::clone(&path), Arc::clone(&options))?;
+                    direct_entry.lock().unwrap().sub_entries.lock().unwrap().push(Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(sub_entry))));
+                    tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
                 }
             }
         }
-        drop(tx);
-        for _ in rx { }
         let locked_entry = direct_entry.lock().unwrap();
         let absolute_path = path.join(PathBuf::from(&options.wispha_name));
         fs::write(&absolute_path, locked_entry.to_file_string(0, &root_dir)?)
@@ -142,80 +134,76 @@ fn generate_entry_from_path_recursively_and_concurrently(path: Arc<PathBuf>, roo
         tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
         drop(tx_global);
         if let Some(rx_global) = rx_global_option {
-            for _ in rx_global { }
+            let mut counter = 0;
+            for _ in rx_global {
+                counter += 1;
+                print!("\rRecording {} files.", counter);
+                stdout().flush().unwrap();
+            }
+            println!();
             return Ok(())
-        }
-    } else {
-        let direct_entry = generate_file_at_path_without_sub_and_sup(Arc::clone(&path), Arc::clone(&options))?;
-        if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
-            let locked_sup_entry = sup_entry.lock().unwrap();
-            let mut locked_sub_entries = locked_sup_entry.sub_entries.lock().unwrap();
-            locked_sub_entries.push(Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(direct_entry))));
-            drop(locked_sub_entries);
-            drop(locked_sup_entry);
-            tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
-            drop(tx_local);
-            tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
-            drop(tx_global);
         }
     }
 
     Ok(())
 }
 
-// `sup_entry_things` is `None` if this is the top call from user, otherwise it is called from the function
-// top call from user will not returned until the entire tree is constructed and `.wispha` file is written
+// TODO: add error handling in multi-thread mode
+// `this_entry_things` is `None` if this is the top call from user, otherwise it is called from the function.
+// Top call from user will not returned until the entire tree is constructed and `.wispha` files are written
 // `path` and `root_dir` is absolute
-fn generate_entry_from_path_flat_and_concurrently(path: Arc<PathBuf>, root_dir: Arc<PathBuf>, ignored_files: Arc<Gitignore>, options: Arc<GeneratorOptions>, sup_entry_things: Option<(Arc<Mutex<WisphaIntermediateEntry>>, mpsc::Sender<bool>, mpsc::Sender<bool>)>, thread_pool: Arc<Mutex<ThreadPool>>) -> Result<()> {
-    let intermediate_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(generate_file_at_path_without_sub_and_sup(Arc::clone(&path), Arc::clone(&options))?)));
-    let (tx_global, rx_global_option) = if let Some((sup_entry, tx_local, tx_global)) = sup_entry_things {
-        let mut locked_sup_entry = sup_entry.lock().unwrap();
-        let mut locked_sub_entries = locked_sup_entry.get_direct_entry_mut().unwrap().sub_entries.lock().unwrap();
-        locked_sub_entries.push(Arc::clone(&intermediate_entry));
-        drop(locked_sub_entries);
-        drop(locked_sup_entry);
-        tx_local.send(true).or(Err(GeneratorError::Unexpected))?;
-        drop(tx_local);
-        (tx_global, None)
-    } else {
-        let (tx_global, rx_global) =mpsc::channel();
-        (tx_global, Some(rx_global))
-    };
+fn generate_entry_from_path_flat_and_concurrently(path: Arc<PathBuf>,
+                                                  root_dir: Arc<PathBuf>,
+                                                  ignored_files: Arc<Gitignore>,
+                                                  options: Arc<GeneratorOptions>,
+                                                  this_entry_things: Option<(Arc<Mutex<WisphaIntermediateEntry>>, mpsc::Sender<bool>)>,
+                                                  thread_pool: Arc<Mutex<ThreadPool>>) -> Result<()> {
     if path.is_dir() {
-        let (tx, rx) = mpsc::channel();
-        for entry in fs::read_dir(&*path).or(Err(GeneratorError::DirCannotRead((*path).clone())))? {
-            let cloned_wispha = Arc::clone(&intermediate_entry);
+        let (this_entry, tx_global, rx_global_option) = if let Some((this_entry, tx_global)) = this_entry_things {
+            (this_entry, tx_global, None)
+        } else {
+            let this_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(generate_file_at_path_without_sub_and_sup(Arc::clone(&path), Arc::clone(&options))?)));
+            let (tx_global, rx_global) =mpsc::channel();
+            (this_entry, tx_global, Some(rx_global))
+        };
+        let entries = fs::read_dir(&*path).or(Err(GeneratorError::DirCannotRead((*path).clone())))?;
+        for entry in entries {
+            let entry = entry.or(Err(GeneratorError::Unexpected))?;
+            let cloned_wispha = Arc::clone(&this_entry);
             let cloned_ignored_files = Arc::clone(&ignored_files);
             let cloned_options = Arc::clone(&options);
             let cloned_path = Arc::new(entry.path().clone());
             let cloned_root_dir = Arc::clone(&root_dir);
-            let cloned_tx = Sender::clone(&tx);
             let cloned_tx_global = Sender::clone(&tx_global);
             let cloned_thread_pool = Arc::clone(&thread_pool);
-            thread_pool.lock().unwrap().execute(move || {
-                let entry = entry.unwrap();
-                if should_include_entry(&entry, Arc::clone(&cloned_ignored_files), Arc::clone(&cloned_options)) {
-                    generate_entry_from_path_flat_and_concurrently(cloned_path, cloned_root_dir, cloned_ignored_files, cloned_options, Some((cloned_wispha, cloned_tx, cloned_tx_global)), cloned_thread_pool);
+            if should_include_entry(&entry, Arc::clone(&cloned_ignored_files), Arc::clone(&cloned_options)) {
+                if entry.path().is_dir() {
+                    let sub_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(generate_file_at_path_without_sub_and_sup(Arc::clone(&cloned_path), Arc::clone(&options))?)));
+                    this_entry.lock().unwrap().get_direct_entry_mut().unwrap().sub_entries.lock().unwrap().push(Arc::clone(&sub_entry));
+                    thread_pool.lock().unwrap().execute(move || {
+                        generate_entry_from_path_flat_and_concurrently(cloned_path, cloned_root_dir, cloned_ignored_files, cloned_options, Some((cloned_wispha, cloned_tx_global)), cloned_thread_pool);
+                    });
+                } else {
+                    let sub_entry = generate_file_at_path_without_sub_and_sup(Arc::clone(&path), Arc::clone(&options))?;
+                    this_entry.lock().unwrap().get_direct_entry_mut().unwrap().sub_entries.lock().unwrap().push(Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(sub_entry))));
+                    tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
                 }
-            });
+            }
         }
-        drop(tx);
-        for _ in rx { }
         tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
         drop(tx_global);
         if let Some(rx_global) = rx_global_option {
-            for _ in rx_global { }
-            let locked_intermediate_entry = intermediate_entry.lock().unwrap();
-            let entry = locked_intermediate_entry.get_direct_entry().unwrap();
-            let absolute_path = path.join(PathBuf::from(&options.wispha_name));
-            fs::write(&absolute_path, entry.to_file_string(0, &root_dir)?)
-                .or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
-            drop(locked_intermediate_entry);
+            let mut counter = 0;
+            for _ in rx_global {
+                counter += 1;
+                print!("\rRecording {} files.", counter);
+                stdout().flush().unwrap();
+            }
+            println!();
+            let absolute_path = this_entry.lock().unwrap().get_direct_entry().unwrap().properties.absolute_path.join(&options.wispha_name);
+            fs::write(&absolute_path, this_entry.lock().unwrap().get_direct_entry().unwrap().to_file_string(0, &root_dir)?).or(Err(GeneratorError::FileCannotWrite(absolute_path.clone())))?;
             return Ok(())
         }
-    } else {
-        tx_global.send(true).or(Err(GeneratorError::Unexpected))?;
-        drop(tx_global);
     }
     Ok(())
 }
