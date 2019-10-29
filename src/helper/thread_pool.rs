@@ -1,5 +1,10 @@
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
+use std::error::Error;
+use std::fmt;
+use std::fmt::{Display, Formatter, Debug};
+
+type Result<T> = std::result::Result<T, ThreadPoolError>;
 
 type Job = Box<dyn FnBox + Send + 'static>;
 
@@ -24,7 +29,7 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
-    pub fn new(size: usize) -> ThreadPool {
+    pub fn new(size: usize) -> Result<ThreadPool> {
         let (sender, receiver) = mpsc::channel();
 
         let receiver = Arc::new(Mutex::new(receiver));
@@ -32,13 +37,13 @@ impl ThreadPool {
         let mut workers = Vec::with_capacity(size);
 
         for _ in 0..size {
-            workers.push(Worker::new(Arc::clone(&receiver)));
+            workers.push(Worker::new(Arc::clone(&receiver))?);
         }
 
-        ThreadPool {
+        Ok(ThreadPool {
             workers,
             sender,
-        }
+        })
     }
 
     pub fn execute<F>(&self, f: F)
@@ -70,23 +75,44 @@ struct Worker {
 }
 
 impl Worker {
-    fn new(receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
-        let thread = thread::spawn(move || {
+    fn new(receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Result<Worker> {
+        let builder = thread::Builder::new();
+        let thread = builder.spawn(move || {
             loop {
-                let message = receiver.lock().unwrap().recv().unwrap();
-                match message {
-                    Message::NewJob(job) => {
-                        job.call_box();
-                    },
-                    Message::Terminate => {
-                        break;
-                    },
+                if let Ok(message) = receiver.lock().unwrap().recv() {
+                    match message {
+                        Message::NewJob(job) => {
+                            job.call_box();
+                        },
+                        Message::Terminate => {
+                            break;
+                        },
+                    }
                 }
             }
-        });
+        }).or(Err(ThreadPoolError::NoEnoughThread))?;
 
-        Worker {
+        Ok(Worker {
             thread: Some(thread),
-        }
+        })
+    }
+}
+
+#[derive(Debug)]
+pub enum ThreadPoolError {
+    NoEnoughThread,
+}
+
+impl Error for ThreadPoolError { }
+
+impl Display for ThreadPoolError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use ThreadPoolError::*;
+        let message = match &self {
+            NoEnoughThread => {
+                format!("No enough thread.")
+            }
+        };
+        write!(f, "{}", message)
     }
 }

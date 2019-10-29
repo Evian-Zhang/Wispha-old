@@ -28,7 +28,7 @@ use std::io::{stdout, Write};
 type Result<T> = std::result::Result<T, ParserError>;
 
 pub fn parse(file_path: &Path, options: ParserOptions) -> Result<Rc<RefCell<WisphaEntry>>> {
-    let thread_pool = Arc::new(Mutex::new(ThreadPool::new(options.threads)));
+    let thread_pool = Arc::new(Mutex::new(ThreadPool::new(options.threads)?));
     env::set_var(ROOT_DIR_VAR, file_path.parent().unwrap().to_str().unwrap());
     let intermediate_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(WisphaDirectEntry::default())));
     parse_with_env_set(file_path.to_path_buf(), options, Arc::clone(&intermediate_entry), Arc::clone(&thread_pool))?;

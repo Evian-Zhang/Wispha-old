@@ -3,6 +3,8 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Debug};
 use std::path::PathBuf;
 
+use crate::helper::thread_pool::ThreadPoolError;
+
 #[derive(Debug)]
 pub enum GeneratorError {
     DirCannotRead(PathBuf),
@@ -11,6 +13,7 @@ pub enum GeneratorError {
     NameNotValid(PathBuf),
     IgnoreError(ignore::Error),
     FileCannotWrite(PathBuf),
+    ThreadPoolError(ThreadPoolError),
     Unexpected,
 }
 
@@ -40,6 +43,9 @@ impl Display for GeneratorError {
             },
             FileCannotWrite(path) => {
                 format!("Cannot write to file {}. Permission denied.", path.to_str().unwrap())
+            },
+            ThreadPoolError(error) => {
+                format!("{}", error)
             }
         };
         write!(f, "{}", error_message)
@@ -49,6 +55,12 @@ impl Display for GeneratorError {
 impl From<ignore::Error> for GeneratorError {
     fn from(err: ignore::Error) -> Self {
         GeneratorError::IgnoreError(err)
+    }
+}
+
+impl From<ThreadPoolError> for GeneratorError {
+    fn from(err: ThreadPoolError) -> Self {
+        GeneratorError::ThreadPoolError(err)
     }
 }
 

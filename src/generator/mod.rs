@@ -24,7 +24,7 @@ pub type Result<T> = std::result::Result<T, GeneratorError>;
 
 // treat `path` as root. `path` is absolute
 pub fn generate(path: PathBuf, options: GeneratorOptions) -> Result<()> {
-    let thread_pool = Arc::new(Mutex::new(ThreadPool::new(options.threads)));
+    let thread_pool = Arc::new(Mutex::new(ThreadPool::new(options.threads)?));
     match &options.layer {
         GenerateLayer::Flat => {
             let ignored_files = get_ignored_files_from_root(path.clone(), options.ignored_files.clone())?;
@@ -85,8 +85,8 @@ fn should_include_entry(entry: &DirEntry, wispha_ignore: Arc<Gitignore>, options
     true
 }
 
-// `tx_global_options` is `None` if this is the top call from user, otherwise it is called from the function.
-// Top call from user will not returned until the entire tree is constructed and all `.wispha` files are written
+// Only called once in a parsing process
+// Will not returned until the entire tree is constructed and all `.wispha` files are written
 // `path` and `root_dir` is absolute
 fn generate_entry_from_path_recursively_and_concurrently(path: Arc<PathBuf>,
                                                          root_dir: Arc<PathBuf>,
@@ -119,6 +119,7 @@ fn generate_entry_from_path_recursively_and_concurrently(path: Arc<PathBuf>,
     }
 }
 
+// called by `generate_entry_from_path_recursively_and_concurrently` and itself.
 fn generate_entry_from_path_recursively_and_concurrently_sub_routine(path: Arc<PathBuf>,
                                                                      root_dir: Arc<PathBuf>,
                                                                      ignored_files: Arc<Gitignore>,
@@ -163,8 +164,8 @@ fn generate_entry_from_path_recursively_and_concurrently_sub_routine(path: Arc<P
     Ok(())
 }
 
-// `this_entry_things` is `None` if this is the top call from user, otherwise it is called from the function.
-// Top call from user will not returned until the entire tree is constructed and `.wispha` files are written
+// Only called once in a parsing process
+// Will not returned until the entire tree is constructed and `.wispha` files are written
 // `path` and `root_dir` is absolute
 fn generate_entry_from_path_flat_and_concurrently(path: Arc<PathBuf>,
                                                   root_dir: Arc<PathBuf>,
@@ -203,6 +204,7 @@ fn generate_entry_from_path_flat_and_concurrently(path: Arc<PathBuf>,
     }
 }
 
+// called by `generate_entry_from_path_flat_and_concurrently` and itself.
 fn generate_entry_from_path_flat_and_concurrently_sub_routine(path: Arc<PathBuf>,
                                                               root_dir: Arc<PathBuf>,
                                                               ignored_files: Arc<Gitignore>,

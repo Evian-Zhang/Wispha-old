@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter, Debug};
 use std::path::PathBuf;
 
 use crate::parser::parser_struct::{WisphaToken, WisphaExpectOption};
+use crate::helper::thread_pool::ThreadPoolError;
 
 #[derive(Debug)]
 pub enum ParserError {
@@ -12,6 +13,7 @@ pub enum ParserError {
     UnexpectedToken(WisphaToken, Option<Vec<(WisphaToken, Vec<WisphaExpectOption>)>>),
     EmptyBody(WisphaToken),
     EnvNotFound,
+    ThreadPoolError(ThreadPoolError),
     Unexpected,
 }
 
@@ -45,10 +47,19 @@ impl Display for ParserError {
             EnvNotFound => {
                 format!("Cannot determine the environment variable.")
             },
+            ThreadPoolError(error) => {
+                format!("{}", error)
+            },
             Unexpected => {
                 format!("Unexpected error. Please retry.")
             },
         };
         write!(f, "{}", error_message)
+    }
+}
+
+impl From<ThreadPoolError> for ParserError {
+    fn from(err: ThreadPoolError) -> Self {
+        ParserError::ThreadPoolError(err)
     }
 }
