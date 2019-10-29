@@ -149,7 +149,7 @@ fn generate_entry_from_path_recursively_and_concurrently_sub_routine(path: Arc<P
                     tx_global.send(result).unwrap();
                 });
             } else {
-                let sub_entry = generate_file_at_path_without_sub_and_sup(Arc::clone(&path), Arc::clone(&options))?;
+                let sub_entry = generate_file_at_path_without_sub_and_sup(Arc::new(entry.path()), Arc::clone(&options))?;
                 direct_entry.lock().unwrap().sub_entries.lock().unwrap().push(Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(sub_entry))));
                 tx_global.send(Ok(())).unwrap();
             }
