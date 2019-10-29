@@ -39,6 +39,8 @@ pub struct Generate {
 
 #[derive(StructOpt)]
 pub struct Look {
+    #[structopt(short, long)]
+    pub threads: Option<usize>,
     pub path: PathBuf,
 }
 

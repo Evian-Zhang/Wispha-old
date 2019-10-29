@@ -3,18 +3,28 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Debug};
 
 use crate::config_reader::{Config, PropertyConfig};
+use crate::strings::*;
+use crate::commandline::Look;
 
 type Result<T> = std::result::Result<T, ParserOptionError>;
 
 #[derive(Clone)]
 pub struct ParserOptions {
     pub properties: Vec<PropertyConfig>,
+    pub threads: usize,
 }
 
 impl ParserOptions {
     pub fn default() -> ParserOptions {
         ParserOptions {
             properties: vec![],
+            threads: DEFAULT_THREADS,
+        }
+    }
+
+    pub fn update_from_commandline(&mut self, look: &Look) {
+        if let Some(threads) = look.threads {
+            self.threads = threads;
         }
     }
 

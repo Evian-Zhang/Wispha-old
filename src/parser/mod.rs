@@ -23,13 +23,15 @@ pub mod error;
 use error::ParserError;
 use std::sync::{Arc, Mutex, mpsc, mpsc::Sender};
 use std::thread;
+use crate::helper::thread_pool::ThreadPool;
 
 type Result<T> = std::result::Result<T, ParserError>;
 
 pub fn parse(file_path: &Path, options: ParserOptions) -> Result<Rc<RefCell<WisphaEntry>>> {
+    let thread_pool = Arc::new(Mutex::new(ThreadPool::new(options.threads)));
     env::set_var(ROOT_DIR_VAR, file_path.parent().unwrap().to_str().unwrap());
     let intermediate_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(WisphaDirectEntry::default())));
-    parse_with_env_set(file_path.to_path_buf(), options, None, Arc::clone(&intermediate_entry))?;
+    parse_with_env_set(file_path.to_path_buf(), options, None, Arc::clone(&intermediate_entry), Arc::clone(&thread_pool))?;
     let locked_entry = intermediate_entry.lock().unwrap();
     if let Some(common) = locked_entry.to_common() {
         Ok(common)
@@ -38,7 +40,11 @@ pub fn parse(file_path: &Path, options: ParserOptions) -> Result<Rc<RefCell<Wisp
     }
 }
 
-fn parse_with_env_set(file_path: PathBuf, options: ParserOptions, tx_global: Option<Sender<bool>>, this_entry: Arc<Mutex<WisphaIntermediateEntry>>) -> Result<()> {
+fn parse_with_env_set(file_path: PathBuf,
+                      options: ParserOptions,
+                      tx_global: Option<Sender<bool>>,
+                      this_entry: Arc<Mutex<WisphaIntermediateEntry>>,
+                      thread_pool: Arc<Mutex<ThreadPool>>) -> Result<()> {
     let (tx_global, rx_global_option) = if let Some(tx_global) = tx_global {
         (tx_global, None)
     } else {
@@ -49,7 +55,7 @@ fn parse_with_env_set(file_path: PathBuf, options: ParserOptions, tx_global: Opt
         .or(Err(ParserError::FileCannotRead(file_path.clone())))?;
     let tokens = tokenize(content, &file_path);
     let root = build_wispha_entry_with_relative_path(tokens, 1, options.clone())?;
-    resolve(root, options.clone(), Sender::clone(&tx_global), this_entry)?;
+    resolve(root, options.clone(), Sender::clone(&tx_global), this_entry, Arc::clone(&thread_pool))?;
     tx_global.send(true).or(Err(ParserError::Unexpected))?;
     drop(tx_global);
     if let Some(rx_global) = rx_global_option {
@@ -263,7 +269,11 @@ fn build_wispha_direct_entry(properties: Vec<WisphaRawProperty>, options: Parser
 }
 
 // resolve `entry`, and transfer all its field to `this_entry`. `entry` may be link or direct, `this_entry` is direct.
-fn resolve(entry: Arc<Mutex<WisphaIntermediateEntry>>, options: ParserOptions, tx_global: Sender<bool>, this_entry: Arc<Mutex<WisphaIntermediateEntry>>) -> Result<()> {
+fn resolve(entry: Arc<Mutex<WisphaIntermediateEntry>>,
+           options: ParserOptions,
+           tx_global: Sender<bool>,
+           this_entry: Arc<Mutex<WisphaIntermediateEntry>>,
+           thread_pool: Arc<Mutex<ThreadPool>>) -> Result<()> {
     let locked_entry = entry.lock().unwrap();
     let entry_type = locked_entry.get_type();
     drop(locked_entry);
@@ -277,7 +287,7 @@ fn resolve(entry: Arc<Mutex<WisphaIntermediateEntry>>, options: ParserOptions, t
             let mut locked_sub_entries = direct_entry.sub_entries.lock().unwrap();
             for sub_entry in &mut *locked_sub_entries {
                 let this_sub_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(WisphaDirectEntry::default())));
-                resolve(Arc::clone(sub_entry), options.clone(), Sender::clone(&tx_global), Arc::clone(&this_sub_entry))?;
+                resolve(Arc::clone(sub_entry), options.clone(), Sender::clone(&tx_global), Arc::clone(&this_sub_entry), Arc::clone(&thread_pool))?;
                 let mut locked_this_sub_entry = this_sub_entry.lock().unwrap();
                 locked_this_sub_entry.get_direct_entry_mut().unwrap().sup_entry = Mutex::new(Arc::downgrade(&this_entry));
                 drop(locked_this_sub_entry);
@@ -297,9 +307,9 @@ fn resolve(entry: Arc<Mutex<WisphaIntermediateEntry>>, options: ParserOptions, t
             drop(locked_entry);
             let cloned_tx = Sender::clone(&tx_global);
             let cloned_options = options.clone();
-            thread::spawn(move || -> Result<()> {
-                parse_with_env_set(file_path, cloned_options, Some(cloned_tx), this_entry)?;
-                Ok(())
+            let cloned_thread_pool = Arc::clone(&thread_pool);
+            thread_pool.lock().unwrap().execute(move || {
+                parse_with_env_set(file_path, cloned_options, Some(cloned_tx), this_entry, cloned_thread_pool);
             });
             tx_global.send(true).unwrap();
         }

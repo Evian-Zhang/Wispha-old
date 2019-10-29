@@ -71,6 +71,7 @@ fn main_with_error() -> Result<(), MainError> {
             if let Some(config) = config {
                 options.update_from_config(&config)?;
             }
+            options.update_from_commandline(look);
 
             let root = parser::parse(&actual_path, options)?;
 
