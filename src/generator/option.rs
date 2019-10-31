@@ -27,7 +27,7 @@ pub enum GenerateLayer {
 impl GeneratorOptions {
     pub fn default() -> GeneratorOptions {
         GeneratorOptions {
-            layer: GenerateLayer::Flat,
+            layer: GenerateLayer::Recursive,
             allow_hidden_files: false,
             properties: vec![],
             ignored_files: vec![],

@@ -28,6 +28,7 @@ pub fn state_from_path(path: &PathBuf, options: StatorOptions) -> Result<Vec<Pat
     if let Some(config) = config {
         parser_options.update_from_config(&config).or_else(|error| Err(StatorError::ParserOptionError(error)))?;
     }
+    options.update_parser_options(&mut parser_options);
     let root = parser::parse(&path, parser_options).or_else(|error| Err(StatorError::ParserError(error)))?;
 
     let mut recorded_paths = vec![];

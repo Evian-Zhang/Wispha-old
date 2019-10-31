@@ -93,25 +93,52 @@ A .cpp file to display file type
 * 对于`entry file path`属性，其内容为另一个`.wispha`文件的路径。当`Wispha`程序分析到这个属性时，会取指定路径分析那个文件作为该属性对应的文件。该属性只能出现在`subentry`属性的内容中或者文件的第一层属性中。一旦出现，则其他同层次的属性均被忽略。
 * 对于`entry type`属性，其内容只可以为`directory`或`file`. 这个内容只是标记其在文件系统中的事实情况，`file`类型的主体依然可以有`subentry`.
 
+为了可移植性，建议在所有用到路径的地方均适用相对路径或`$ROOT_DIR`开头的路径。
+
 ## 使用方法
 
 ### 生成
 
-对于指定目录，其路径为`path/to/directory`, 可使用命令
+总的来说，我们有两种自动生成`.wispha`格式文件的方法：平面式和递归式。所谓平面式，就是将所有文件、文件夹都记录在同一个文件中，而递归式，则是将当前文件夹下所有子文件、子文件夹记录在一个文件中，而类似这样递归地建立子文件夹的`.wispha`文件格式，在每个文件夹中保留其对子文件夹的`.wispha`描述文件的一个索引即可。
 
-```bash
-Wispha generate path/to/directory
+比如说，项目文件夹的层次结构为
+
+```
+- project
+-- src
+--- main.rs
+
+-- test
+--- test.rs
+
+-- README.md
 ```
 
-在指定目录下生成`LOOKME.wispha`文件。
+那么，水平式的`.wispha`格式文件是建立在`project`目录下，其包括该目录下的所有子文件和子目录`src`, `src/main.rs`, `test`, `test/test.rs`,  `README.md`. 而递归式的`.wispha`格式文件则有多个，分别建立在`project`, `src`, `test`三个目录下，分别只记录当前目录的所有子文件和子目录。
 
-值得注意的是，这里只在指定目录下生成一个文件`path/to/directory/LOOKME.wispha`, 该目录的所有文件以`subentry`的形式记录在其中。可以在命令中加入`-r`选项
+如果项目的路径在`path/to/directory`, 生成水平式的`.wispha`格式文件的命令为
+
+```bash
+Wispha generate -f path/to/directory
+```
+
+生成递归式的`.wispha`格式文件的命令为
 
 ```bash
 Wispha generate -r path/to/directory
 ```
 
-以递归地生成`LOOKME.wispha`文件。即在指定目录及其所有子目录中均生成`LOOKME.wispha`文件，每个子目录在其上层目录的`LOOKME.wispha`中均只以`entry file path`属性出现。
+总的来说，递归式地生成文件具有更好的可扩展性，在语法分析的时候也不会产生太深的递归层次。因此，建议递归式地生成。故我们将递归式作为缺省的生成方式，在调用`generate`命令时，可以不加选项，默认使用递归式生成。
+
+此外，`generate`命令还支持的选项有：
+
+* `-t`<br />指明所使用的线程数。如：
+
+    ```bash
+    Wispha generate -t 6 path/to/directory
+    ```
+
+    就是使用6个线程进行生成。缺省值为4.
 
 ### 分析
 
@@ -122,6 +149,8 @@ Wispha look path/to/LOOKME.wispha
 ```
 
 指令进行分析。其会将`path/to/`路径作为所有相关文件中的`$ROOT_DIR`.
+
+与`generate`指令类似，可以使用`-t`选项指明线程数。
 
 若分析成功，则进入交互模式。
 
@@ -204,6 +233,8 @@ Wispha state -g path/to/LOOKME.wispha
 ```
 
 该命令在上述描述的基础上，只查看那些被Git记录的，未被Wispha记录的文件。
+
+与`generate`指令类似，也可以使用`-t`选项指明线程数。
 
 ### 高级使用
 

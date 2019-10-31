@@ -48,6 +48,8 @@ pub struct Look {
 pub struct State {
     #[structopt(short, long)]
     pub git: bool,
+    #[structopt(short, long)]
+    pub threads: Option<usize>,
     pub path: PathBuf,
 }
 

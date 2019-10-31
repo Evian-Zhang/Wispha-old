@@ -96,25 +96,50 @@ The first layer of file must contain:
 * The body of `entry file path` is a path to another `.wispha` file. When `Wispha` analyzes this part, it will go to that path to analyze that file, and turn the output entry to the subentry in here. This property can only in the body of `subentry` property, or in the first layer of a file. Once the property is found, other properties in the same layer is omitted.
 * The body of `entry type` can only be `directory` or `file`. This content merely marks the type in file system, the entry of type `file` can also have `subentry` property.
 
+For portability, relative path or path which starts with `$ROOT_DIR` is recommonded when dealing with path.
+
 ## Usage
 
 ### Generate
 
-For a given directory with path `/path/to/directory`, we can use the command
+Generally speaking, there are two ways to generate `.wispha` recording files: to generate flat or recursively. To generate flat, is to collect all files, directories in the target project into a signle `.wispha` file. And to generate recursively, is to only collect files and directories belonging to the current directory into a file, and there are more than one `.wispha` file in total. The sup directory's `.wispha` format file use `entry path file` property to refer to the sub directory's `.wispha` format file.
+
+For example, our project's hierachical layers are given as follow:
+
+```
+- project
+-- src
+--- main.rs
+
+-- test
+--- test.rs
+
+-- README.md
+```
+
+To generate flat, we have one `.wispha` format file in `project` directory, and it recores all files and directories: `src`, `src/main.rs`, `test`, `test/test.rs`, `README.md`. And to generate recursively, we have three `.wispha` format files lying in `project`, `src` and `test` directory.
+
+For a given directory with path `path/to/directory`, we can use the command
 
 ```bash
-Wispha generate path/to/directory
+Wispha generate -f path/to/directory
 ```
 
 to generate `LOOKME.wispha` file in that directory.
 
-It is worth noting that, this command generate only one file `path/to/directory/LOOKME.wispha`, all files in the directory is recorded in the file as `subentry`. We can add the `-r` option
+We can use  `-r` option
 
 ```bash
 Wispha generate -r path/to/directory
 ```
 
-to generate `LOOKEME.wispha` recursively, namely, generate `LOOKEME.wispha` in the given directory and its subdirectories. The subdirectory is recorded as `entry file path` in the super directory's `LOOKME.wispha`.
+to generate `LOOKEME.wispha` recursively.
+
+Generally speaking, generating recursively is more scalable, and won't lead to deep recursion when parsing. So generating recursively is recommanded, and `-r` option is made default when we generating. So we could omit `-r` option when we want to generate recursively.
+
+Apart from `-f` and `-r`, `generate` command supports the following options:
+
+* `-t`<br />To specify the number of threads. 4 by default.
 
 ### Analyze
 
@@ -125,6 +150,8 @@ Wispha look path/to/LOOKME.wispha
 ```
 
 to analyze it. This will replace all `$ROOT_DIR` with `path/to/`.
+
+Like `generate` command, we can use `-t` option to specify the number of threads.
 
 If analyzing successfully, we will enter interactive mode.
 
@@ -205,6 +232,8 @@ Wispha state -g path/to/LOOK<E.wispha
 ```
 
 This command only inspect those files which are recorded by Git and not recorded by Wispha.
+
+Like `generate` command, we can use `-t` option to specify the number of threads.
 
 ### Advanced usage
 

@@ -1,10 +1,13 @@
 use crate::config_reader::Config;
 use crate::commandline::State;
+use crate::strings::*;
+use crate::parser::option::ParserOptions;
 
 pub struct StatorOptions {
     pub ignored_files: Vec<String>,
     pub allow_hidden_files: bool,
     pub git: bool,
+    pub threads: usize,
 }
 
 impl StatorOptions {
@@ -13,6 +16,7 @@ impl StatorOptions {
             ignored_files: vec![],
             allow_hidden_files: false,
             git: false,
+            threads: DEFAULT_THREADS,
         }
     }
 
@@ -29,5 +33,12 @@ impl StatorOptions {
 
     pub fn update_from_commandline(&mut self, state: &State) {
         self.git = state.git;
+        if let Some(threads) = state.threads {
+            self.threads = threads;
+        }
+    }
+
+    pub fn update_parser_options(&self, parser_options: &mut ParserOptions) {
+        parser_options.threads = self.threads;
     }
 }
