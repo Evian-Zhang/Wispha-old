@@ -28,6 +28,7 @@ pub struct GenerateConfig {
 pub struct PropertyConfig {
     pub name: String,
     pub default_value: Option<String>,
+    pub allow_multi_line: Option<bool>,
 }
 
 pub fn read_configs_in_dir(dir: &PathBuf) -> Result<Option<Config>> {

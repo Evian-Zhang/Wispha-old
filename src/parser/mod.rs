@@ -261,11 +261,31 @@ fn build_wispha_direct_entry(properties: Vec<WisphaRawProperty>, options: Parser
                 locked_sub_entries.push(Arc::clone(&sub_entry));
                 drop(locked_sub_entries);
             }
+            // TODO: fix the bug: can't enter this branch
             _ => {
                 let properties = &options.properties;
-                for property in properties {
-                    if property.name.as_str() == header_str {
-                        direct_entry.properties.customized.insert(property.name.clone(), header_str.to_string());
+                for config_property in properties {
+                    if config_property.name.as_str() == header_str {
+                        let body = if config_property.allow_multi_line == Some(true) {
+                            let mut content = String::new();
+                            let content_tokens = get_multiline_content_tokens_from_body(property.body)?;
+                            for token in &content_tokens {
+                                content.push_str(&token.raw_token().content);
+                                content.push_str("\n");
+                            }
+                            if content_tokens.len() > 0 {
+                                content.pop();
+                            }
+                            content
+                        } else {
+                            if let Some(content_token) = get_content_token_from_body(property.body)? {
+                                content_token.raw_token().content.clone()
+                            } else {
+                                let header: &WisphaToken = property.header.borrow();
+                                return Err(ParserError::EmptyBody(header.clone()));
+                            }
+                        };
+                        direct_entry.properties.customized.insert(config_property.name.clone(), body);
                         break;
                     }
                 }

@@ -129,7 +129,12 @@ fn continue_program_with_error(manipulator: &mut Manipulator, bstdin: &mut BufRe
     let input_parser = InputParser::new(input.clone());
     let mut input_tokens: Vec<String> = input_parser.collect();
     input_tokens.insert(0, String::from("wispha"));
-    let look_command = LookCommand::from_iter_safe(input_tokens).unwrap();
+    let look_command = LookCommand::from_iter_safe(input_tokens);
+    if let Err(error) = look_command {
+        println!("{}", error);
+        return Ok(ProgramState::Continuing);;
+    }
+    let look_command = look_command.unwrap();
     match look_command.subcommand {
         LookSubcommand::Cd(cd) => {
             if cd.local {
