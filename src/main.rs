@@ -67,7 +67,7 @@ fn main_with_error() -> Result<(), MainError> {
 
             // get parser options from config
             let mut options = ParserOptions::default();
-            let config = config_reader::read_configs_in_dir(&actual_path)?;
+            let config = config_reader::read_configs_in_dir(&actual_path.parent().unwrap().to_path_buf())?;
             if let Some(config) = config {
                 options.update_from_config(&config)?;
             }

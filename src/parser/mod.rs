@@ -261,7 +261,6 @@ fn build_wispha_direct_entry(properties: Vec<WisphaRawProperty>, options: Parser
                 locked_sub_entries.push(Arc::clone(&sub_entry));
                 drop(locked_sub_entries);
             }
-            // TODO: fix the bug: can't enter this branch
             _ => {
                 let properties = &options.properties;
                 for config_property in properties {
