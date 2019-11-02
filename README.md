@@ -137,6 +137,8 @@ to generate `LOOKEME.wispha` recursively.
 
 Generally speaking, generating recursively is more scalable, and won't lead to deep recursion when parsing. So generating recursively is recommanded, and `-r` option is made default when we generating. So we could omit `-r` option when we want to generate recursively.
 
+If `path/to/directory` is not given, `Wispha` will generate at current path by default.
+
 Apart from `-f` and `-r`, `generate` command supports the following options:
 
 * `-t`<br />To specify the number of threads. 4 by default.
