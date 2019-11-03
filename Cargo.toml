@@ -12,5 +12,6 @@ structopt = "*"
 ignore = "*"
 console = "*"
 toml = "*"
-serde = { version = "*", features = ["derive"] }
+serde = { version = "*", features = ["derive", "rc"] }
+serde_json = "*"
 git2 = "*"

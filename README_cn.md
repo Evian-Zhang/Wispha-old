@@ -238,6 +238,20 @@ Wispha state -g path/to/LOOKME.wispha
 
 与`generate`指令类似，也可以使用`-t`选项指明线程数。
 
+### 转码
+
+目前可以将利用`.wispha`格式文件记录的项目转成JSON、TOML格式。
+
+对于指定的`.wispha`文件，其路径为`path/to/LOOKME.wispha`, 可使用命令
+
+```bash
+Wispha -l JSON path/to/LOOKME.wispha -o path/to/LOOKME.json
+```
+
+进行转码。
+
+`-l`选项支持`JSON`和`TOML`, 缺省为`JSON`.
+
 ### 高级使用
 
 可以在项目根目录下新建名为`.wispharc`的配置文件用于配置项目。`.wispharc`配置文件使用[TOML](https://github.com/toml-lang/toml)语法。一份常用的`.wispharc`文件内容如下：

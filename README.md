@@ -217,7 +217,7 @@ It is worth noting that, for property whose name contains whitespace, such as `e
 wispha@some/path > info "entry type"
 ```
 
-### State inspection
+### State inspect
 
 For a given directory with path `path/to/LOOKME.wispha`, we can use the command
 
@@ -236,6 +236,20 @@ Wispha state -g path/to/LOOK<E.wispha
 This command only inspect those files which are recorded by Git and not recorded by Wispha.
 
 Like `generate` command, we can use `-t` option to specify the number of threads.
+
+### Convert
+
+Now we support conversion from the project recorded by `.wispha` files to JSON and TOML.
+
+For a given directory with path `path/to/LOOKME.wispha`, we can use the command
+
+```bash
+Wispha -l JSON path/to/LOOKME.wispha -o path/to/LOOKME.json
+```
+
+to convert.
+
+`-l` option supports `TOML` and `JSON`, and is `JSON` by default.
 
 ### Advanced usage
 

@@ -7,6 +7,7 @@ use std::result::Result;
 
 use crate::manipulator::{Manipulator, error::ManipulatorError};
 use crate::commandline::input_parser::InputParser;
+use crate::parser::option::ParserOptions;
 
 mod input_parser;
 
@@ -22,6 +23,7 @@ pub enum Subcommand {
     Generate(Generate),
     Look(Look),
     State(State),
+    Convert(Convert),
 }
 
 #[derive(StructOpt)]
@@ -51,6 +53,25 @@ pub struct State {
     #[structopt(short, long)]
     pub threads: Option<usize>,
     pub path: PathBuf,
+}
+
+#[derive(StructOpt)]
+pub struct Convert {
+    #[structopt(short, long)]
+    pub threads: Option<usize>,
+    #[structopt(short, long)]
+    pub output: Option<PathBuf>,
+    #[structopt(short, long)]
+    pub language: Option<String>,
+    pub path: PathBuf,
+}
+
+impl Convert {
+    pub fn update_parser_options(&self, options: &mut ParserOptions) {
+        if let Some(threads) = &self.threads {
+            options.threads = threads.clone();
+        }
+    }
 }
 
 #[derive(StructOpt)]

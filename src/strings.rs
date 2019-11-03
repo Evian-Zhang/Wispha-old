@@ -1,4 +1,5 @@
 use crate::wispha::core::WisphaEntryType;
+use crate::serializer::options::Language;
 
 pub const DEFAULT_ENTRY_TYPE: WisphaEntryType = WisphaEntryType::File;
 pub const DEFAULT_NAME: &str = "default name";
@@ -29,3 +30,5 @@ pub const ROOT_DIR_VAR: &str = "WISPHA_ROOT_DIR";
 pub const CONFIG_FILE_NAME: &str = ".wispharc";
 
 pub const DEFAULT_THREADS: usize = 4;
+
+pub const DEFAULT_SERIALIZE_LANGUAGE: Language = Language::JSON;
