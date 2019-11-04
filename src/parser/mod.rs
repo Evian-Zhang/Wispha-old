@@ -24,6 +24,7 @@ pub mod error;
 
 use error::ParserError;
 use std::io::{stdout, Write};
+use std::collections::HashMap;
 
 type Result<T> = std::result::Result<T, ParserError>;
 
@@ -33,7 +34,11 @@ pub fn parse(file_path: &Path, options: ParserOptions) -> Result<Rc<RefCell<Wisp
     let intermediate_entry = Arc::new(Mutex::new(WisphaIntermediateEntry::Direct(WisphaDirectEntry::default())));
     parse_with_env_set(file_path.to_path_buf(), options, Arc::clone(&intermediate_entry), Arc::clone(&thread_pool))?;
     let locked_entry = intermediate_entry.lock().unwrap();
-    if let Some(common) = locked_entry.to_common() {
+    let mut cache = HashMap::new();
+    let mut callback = |entry: Rc<RefCell<WisphaEntry>>| {
+        cache.insert((*entry).borrow().properties.absolute_path.clone(), Rc::clone(&entry));
+    };
+    if let Some(common) = locked_entry.to_common(&mut callback) {
         Ok(common)
     } else {
         Err(ParserError::Unexpected)
@@ -260,6 +265,16 @@ fn build_wispha_direct_entry(properties: Vec<WisphaRawProperty>, options: Parser
                 let mut locked_sub_entries = direct_entry.sub_entries.lock().unwrap();
                 locked_sub_entries.push(Arc::clone(&sub_entry));
                 drop(locked_sub_entries);
+            }
+            DEPENDENCY_HEADER => {
+                if let Some(content_token) = get_content_token_from_body(property.body)? {
+                    let raw = content_token.raw_token().content.trim().to_string();
+                    let current_dir = content_token.raw_token().file_path.clone().parent().unwrap().to_path_buf();
+                    direct_entry.dependency_path_bufs.lock().unwrap().push(actual_path(&raw, &current_dir)?);
+                } else {
+                    let token: &WisphaToken = property.header.borrow();
+                    return Err(ParserError::EmptyBody(token.clone()));
+                }
             }
             _ => {
                 let properties = &options.properties;

@@ -20,7 +20,7 @@ pub const ABSOLUTE_PATH_HEADER: &str = "file path";
 pub const NAME_HEADER: &str = "name";
 pub const ENTRY_TYPE_HEADER: &str = "entry type";
 pub const DESCRIPTION_HEADER: &str = "description";
-
+pub const DEPENDENCY_HEADER: &str = "dependency";
 pub const ENTRY_FILE_PATH_HEADER: &str = "entry file path";
 pub const SUB_ENTRIES_HEADER: &str = "subentry";
 

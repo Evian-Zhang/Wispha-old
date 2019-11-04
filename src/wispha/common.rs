@@ -11,6 +11,8 @@ pub struct WisphaEntry {
     pub properties:  WisphaEntryProperties,
     pub sup_entry: RefCell<Weak<RefCell<WisphaEntry>>>, // for the root node, `*sup_entry` is Weak::new()
     pub sub_entries: RefCell<Vec<Rc<RefCell<WisphaEntry>>>>,
+    pub dependencies: RefCell<Vec<Weak<RefCell<WisphaEntry>>>>,
+    pub dependency_path_bufs: RefCell<Vec<PathBuf>>,
 }
 
 impl WisphaEntry {
@@ -24,14 +26,20 @@ impl WisphaEntry {
             customized: HashMap::new(),
         };
 
-        let sup_entry: RefCell<Weak<RefCell<WisphaEntry>>> = RefCell::new(Weak::new());
+        let sup_entry = RefCell::new(Weak::new());
 
-        let sub_entries: RefCell<Vec<Rc<RefCell<WisphaEntry>>>> = RefCell::new(Vec::new());
+        let sub_entries = RefCell::new(Vec::new());
+
+        let dependencies = RefCell::new(Vec::new());
+
+        let dependency_path_bufs = RefCell::new(Vec::new());
 
         WisphaEntry {
             properties,
             sup_entry,
-            sub_entries
+            sub_entries,
+            dependencies,
+            dependency_path_bufs,
         }
     }
 }

@@ -22,6 +22,7 @@ pub struct WisphaDirectEntry {
     pub properties:  WisphaEntryProperties,
     pub sup_entry: Mutex<Weak<Mutex<WisphaIntermediateEntry>>>,
     pub sub_entries: Mutex<Vec<Arc<Mutex<WisphaIntermediateEntry>>>>,
+    pub dependency_path_bufs: Mutex<Vec<PathBuf>>,
 }
 
 impl WisphaLinkEntry {
@@ -43,14 +44,17 @@ impl WisphaDirectEntry {
             customized: HashMap::new(),
         };
 
-        let sup_entry: Mutex<Weak<Mutex<WisphaIntermediateEntry>>> = Mutex::new(Weak::new());
+        let sup_entry = Mutex::new(Weak::new());
 
-        let sub_entries: Mutex<Vec<Arc<Mutex<WisphaIntermediateEntry>>>> = Mutex::new(Vec::new());
+        let sub_entries = Mutex::new(Vec::new());
+
+        let dependency_path_bufs = Mutex::new(Vec::new());
 
         WisphaDirectEntry {
             properties,
             sup_entry,
-            sub_entries
+            sub_entries,
+            dependency_path_bufs,
         }
     }
 }
@@ -96,16 +100,19 @@ impl WisphaIntermediateEntry {
     }
 
     // must be used from the top, i.e., the `sup_entry` is RefCell::new(Weak::new())
-    pub fn to_common(&self) -> Option<Rc<RefCell<WisphaEntry>>> {
+    pub fn to_common<F>(&self, mut callback: &mut F) -> Option<Rc<RefCell<WisphaEntry>>>
+        where   F: FnMut(Rc<RefCell<WisphaEntry>>)
+    {
         use WisphaIntermediateEntry::*;
         match &self {
             Direct(direct_entry) => {
                 let common = Rc::new(RefCell::new(WisphaEntry::default()));
+                callback(Rc::clone(&common));
                 common.borrow_mut().properties = direct_entry.properties.clone();
                 let locked_sub_entries = direct_entry.sub_entries.lock().unwrap();
                 for sub_entry in &*locked_sub_entries {
                     let locked_sub_entry = sub_entry.lock().unwrap();
-                    if let Some(sub_entry) = locked_sub_entry.to_common() {
+                    if let Some(sub_entry) = locked_sub_entry.to_common(&mut callback) {
                         sub_entry.borrow_mut().sup_entry = RefCell::new(Rc::downgrade(&common));
                         common.borrow_mut().sub_entries.borrow_mut().push(Rc::clone(&sub_entry));
                     } else {
@@ -160,10 +167,14 @@ impl Clone for WisphaDirectEntry {
         let locked_sub_entries = self.sub_entries.lock().unwrap();
         let sub_entries = Mutex::new(locked_sub_entries.iter().map(|sub_entry| {Arc::clone(sub_entry)}).collect());
         drop(locked_sub_entries);
+        let locked_dependency_path_bufs = self.dependency_path_bufs.lock().unwrap();
+        let dependency_path_bufs = Mutex::new(locked_dependency_path_bufs.iter().map(|path| path.clone()).collect());
+        drop(locked_dependency_path_bufs);
         WisphaDirectEntry {
             properties: self.properties.clone(),
             sup_entry,
             sub_entries,
+            dependency_path_bufs,
         }
     }
 }
