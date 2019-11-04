@@ -100,7 +100,7 @@ impl WisphaIntermediateEntry {
     }
 
     // must be used from the top, i.e., the `sup_entry` is RefCell::new(Weak::new())
-    pub fn to_common<F>(&self, mut callback: &mut F) -> Option<Rc<RefCell<WisphaEntry>>>
+    pub fn to_common<F>(&self, callback: &mut F) -> Option<Rc<RefCell<WisphaEntry>>>
         where   F: FnMut(Rc<RefCell<WisphaEntry>>)
     {
         use WisphaIntermediateEntry::*;
@@ -112,7 +112,7 @@ impl WisphaIntermediateEntry {
                 let locked_sub_entries = direct_entry.sub_entries.lock().unwrap();
                 for sub_entry in &*locked_sub_entries {
                     let locked_sub_entry = sub_entry.lock().unwrap();
-                    if let Some(sub_entry) = locked_sub_entry.to_common(&mut callback) {
+                    if let Some(sub_entry) = locked_sub_entry.to_common(callback) {
                         sub_entry.borrow_mut().sup_entry = RefCell::new(Rc::downgrade(&common));
                         common.borrow_mut().sub_entries.borrow_mut().push(Rc::clone(&sub_entry));
                     } else {
