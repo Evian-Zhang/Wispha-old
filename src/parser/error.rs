@@ -14,6 +14,7 @@ pub enum ParserError {
     EmptyBody(WisphaToken),
     EnvNotFound,
     ThreadPoolError(ThreadPoolError),
+    DependencyNotFound(PathBuf),
     Unexpected,
 }
 
@@ -49,6 +50,9 @@ impl Display for ParserError {
             },
             ThreadPoolError(error) => {
                 format!("{}", error)
+            },
+            DependencyNotFound(path) => {
+                format!("Cannot find dependency at path {}", path.to_str().unwrap())
             },
             Unexpected => {
                 format!("Unexpected error. Please retry.")

@@ -39,6 +39,7 @@ pub fn parse(file_path: &Path, options: ParserOptions) -> Result<Rc<RefCell<Wisp
         cache.insert((*entry).borrow().properties.absolute_path.clone(), Rc::clone(&entry));
     };
     if let Some(common) = locked_entry.to_common(&mut callback) {
+        resolve_dependencies(Rc::clone(&common), &cache)?;
         Ok(common)
     } else {
         Err(ParserError::Unexpected)
@@ -357,6 +358,21 @@ fn resolve(entry: Arc<Mutex<WisphaIntermediateEntry>>,
         }
     }
     tx_global.send(Ok(())).unwrap();
+    Ok(())
+}
+
+fn resolve_dependencies(common: Rc<RefCell<WisphaEntry>>, cache: &HashMap<PathBuf, Rc<RefCell<WisphaEntry>>>) -> Result<()> {
+    let mut dependencies = vec![];
+    for dependency_path_buf in &*(*common).borrow().dependency_path_bufs.borrow() {
+        if let Some(dependency) = cache.get(dependency_path_buf) {
+            dependencies.push(Rc::downgrade(dependency));
+        } else {
+            return Err(ParserError::DependencyNotFound(dependency_path_buf.clone()));
+        }
+    }
+    for sub_entry in &*(*common).borrow().sub_entries.borrow() {
+        resolve_dependencies(Rc::clone(sub_entry), cache)?;
+    }
     Ok(())
 }
 

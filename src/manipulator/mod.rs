@@ -139,6 +139,13 @@ impl Manipulator {
                     return Ok(description.clone());
                 }
             },
+            DEPENDENCY_HEADER => {
+                return Ok(self.current_entry.borrow().dependencies.borrow().iter()
+                    .map(|dependency| dependency.upgrade().unwrap().borrow()
+                                                                    .properties
+                                                                    .absolute_path.to_str().unwrap().to_owned())
+                    .collect::<Vec<String>>().join("\n"));
+            },
             _ => {
                 if let Some(value) = self.current_entry.borrow().properties.customized.get(property) {
                     return Ok(value.clone());

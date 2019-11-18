@@ -153,7 +153,7 @@ fn continue_program_with_error(manipulator: &mut Manipulator, bstdin: &mut BufRe
     let look_command = LookCommand::from_iter_safe(input_tokens);
     if let Err(error) = look_command {
         println!("{}", error);
-        return Ok(ProgramState::Continuing);;
+        return Ok(ProgramState::Continuing);
     }
     let look_command = look_command.unwrap();
     match look_command.subcommand {

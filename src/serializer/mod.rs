@@ -32,6 +32,9 @@ impl Serialize for WisphaEntry {
         if !self.sub_entries.borrow().is_empty() {
             wispha.serialize_entry(SUB_ENTRIES_HEADER, &self.sub_entries)?;
         }
+        if !self.dependencies.borrow().is_empty() {
+            wispha.serialize_entry(DEPENDENCY_HEADER, &self.dependencies)?;
+        }
         wispha.end()
     }
 }
